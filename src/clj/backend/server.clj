@@ -1,6 +1,7 @@
 (ns backend.server
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
+            [sc.api]
             [com.stuartsierra.component :as component]
             [compojure.core :refer [GET POST defroutes]]
             [compojure.route :refer [resources files]]
@@ -66,12 +67,52 @@
              (when-let [new-uid (-> (set/difference (:any new) (:any old)) (seq))]
                (println "New connected uid:" new-uid))))
 
+(defmulti -event-msg-handler
+          "Multimethod to handle Sente `event-msg`s"
+          :id ; Dispatch on event-id
+          )
+
+(defn event-msg-handler
+  "Wraps `-event-msg-handler` with logging, error catching, etc."
+  [{:as ev-msg :keys [id ?data event]}]
+  (-event-msg-handler ev-msg) ; Handle event-msgs on a single thread
+  )
+
+(defmethod -event-msg-handler
+  :default
+  [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
+  (let [session (:session ring-req)
+        uid     (:uid     session)]
+    (println "Unhandled event:" event)
+    (when ?reply-fn
+      (?reply-fn {:umatched-event-as-echoed-from-from-server event}))))
+
+(defmethod -event-msg-handler :osmus/join
+  [{:as ev-msg :keys [uid send-fn]}]
+  (chsk-send! uid [:osmus/state "State"]))
+
+(defmethod -event-msg-handler :chsk/uidport-open
+  [{:keys [client-id] :as ev-msg}])
+
+(defmethod -event-msg-handler :chsk/uidport-close [_] ())
+(defmethod -event-msg-handler :chsk/ws-ping [_] ())
+
+(defonce ws-router_ (atom nil))
+(defn  stop-ws-router! [] (when-let [stop-fn @ws-router_] (stop-fn)))
+(defn start-ws-router! []
+  (stop-ws-router!)
+  (reset! ws-router_
+          (sente/start-server-chsk-router!
+            ch-chsk event-msg-handler)))
+
 (defn new-system [opts]
   (component/system-map
     :http-kit (map->HttpKit opts)))
 
 (comment
-  (require 'sc.api)
   (require '[reloaded.repl :refer [reset]])
   (reset)
-  (sc.api/defsc 9))
+  (start-ws-router!)
+  (sc.api/defsc -2)
+  (doseq [uid (:any @connected-uids)]
+    (chsk-send! uid [:osmus/test "test message"])))

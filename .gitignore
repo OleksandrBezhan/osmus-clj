@@ -12,6 +12,7 @@
 *.iml
 
 target/
+out/
 
 project.clj
 
