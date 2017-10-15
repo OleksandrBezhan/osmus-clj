@@ -1,0 +1,16 @@
+/.boot/
+
+*.jar
+# pom.xml
+
+.repl-*
+.nrepl-*
+
+.DS_Store
+
+.idea/
+*.iml
+
+target/
+
+project.clj
