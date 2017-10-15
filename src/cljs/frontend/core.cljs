@@ -8,8 +8,14 @@
 ;; Defonce used to that the state is kept between reloads
 (defonce app-state (r/atom {:y 2017}))
 
+(defn join [])
+(defn shoot [])
+
 (defn main []
   [:div
+   [:canvas#canvas {:width "640" :height "480"}]
+   [:button {:on-click join} "Join"]
+   [:button {:on-click shoot} "Shoot"]
    [:h1 (foo-cljc (:y @app-state))]
    [:div.btn-toolbar
     [:button.btn.btn-danger

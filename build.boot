@@ -6,6 +6,7 @@
   :dependencies '[[org.clojure/clojure    "1.9.0-beta2"]
                   [org.clojure/clojurescript "1.9.946" :scope "test"]
 
+                  [vvvvalvalval/scope-capture "0.1.0"]
                   [onetom/boot-lein-generate "0.1.3" :scope "test"]
                   [adzerk/boot-cljs       "2.1.3" :scope "test"]
                   [crisptrutski/boot-cljs-test "0.3.4" :scope "test"]
@@ -23,6 +24,7 @@
                   [deraen/boot-sass       "0.3.1"      :scope "test"]
 
                   ; Backend
+                  [com.taoensso/sente "1.11.0"]
                   [http-kit "2.2.0"]
                   [org.clojure/tools.namespace "0.3.0-alpha4"]
                   [reloaded.repl "0.2.3"]
