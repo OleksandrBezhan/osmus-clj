@@ -3,7 +3,7 @@
   ; Just be careful to not AOT them
   :source-paths #{"src/cljs" "src/less" "src/scss" "test/clj" "test/cljs"}
   :resource-paths #{"src/clj" "src/cljc"}
-  :dependencies '[[org.clojure/clojure    "1.9.0-beta2"]
+  :dependencies '[[org.clojure/clojure    "1.8.0"]
                   [org.clojure/clojurescript "1.9.946" :scope "test"]
 
                   [vvvvalvalval/scope-capture "0.1.0"]
@@ -31,6 +31,7 @@
                   [com.stuartsierra/component "0.3.2"]
                   [metosin/ring-http-response "0.9.0"]
                   [ring/ring-core "1.6.2"]
+                  [ring/ring-defaults "0.3.1"]
                   [javax.servlet/servlet-api "2.5"] ;; Required by ring multipart middleware
                   [compojure "1.6.0"]
                   [hiccup "1.0.5"]

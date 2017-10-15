@@ -2,7 +2,8 @@
   (:require-macros [frontend.macro :refer [foobar]])
   (:require [reagent.core :as r]
             [common.hello :refer [foo-cljc]]
-            [foo.bar]))
+            [foo.bar]
+            [taoensso.sente :as sente]))
 
 ;; Reagent application state
 ;; Defonce used to that the state is kept between reloads
@@ -41,6 +42,17 @@
 
 ;; Example of interop call to plain JS in src/cljs/foo.js
 (js/foo)
+
+;; WS
+(let [{:keys [chsk ch-recv send-fn state]}
+      (sente/make-channel-socket! "/chsk" ; Note the same path as before
+                                  {:type :auto ; e/o #{:auto :ajax :ws}
+                                   })]
+  (def chsk       chsk)
+  (def ch-chsk    ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send! send-fn) ; ChannelSocket's send API fn
+  (def chsk-state state)   ; Watchable, read-only atom
+  )
 
 (comment
   (println "foo"))
