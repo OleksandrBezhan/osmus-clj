@@ -14,6 +14,26 @@
             [taoensso.sente.server-adapters.http-kit :refer (get-sch-adapter)]
             [backend.index :refer [index-page test-page]]))
 
+(def game-state (atom {1 {
+                          :type :blob
+                          :id   1
+                          :x    100
+                          :y    400
+                          :r    10
+                          :vx   0.1
+                          :vy   -0.1
+                          }
+                       2 {
+                          :type :player
+                          :id   1
+                          :name "Alex"
+                          :x    200
+                          :y    100
+                          :r    5
+                          :vx   -0.1
+                          :vy   0.2
+                          }}))
+
 (let [{:keys [ch-recv send-fn connected-uids
               ajax-post-fn ajax-get-or-ws-handshake-fn]}
       (sente/make-channel-socket! (get-sch-adapter) {:user-id-fn #(:client-id %)})]
@@ -69,36 +89,37 @@
 
 (defmulti -event-msg-handler
           "Multimethod to handle Sente `event-msg`s"
-          :id ; Dispatch on event-id
+          :id                                               ; Dispatch on event-id
           )
 
 (defn event-msg-handler
   "Wraps `-event-msg-handler` with logging, error catching, etc."
   [{:as ev-msg :keys [id ?data event]}]
-  (-event-msg-handler ev-msg) ; Handle event-msgs on a single thread
+  (-event-msg-handler ev-msg)                               ; Handle event-msgs on a single thread
   )
 
 (defmethod -event-msg-handler
   :default
   [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
   (let [session (:session ring-req)
-        uid     (:uid     session)]
+        uid (:uid session)]
     (println "Unhandled event:" event)
     (when ?reply-fn
       (?reply-fn {:umatched-event-as-echoed-from-from-server event}))))
 
 (defmethod -event-msg-handler :osmus/join
-  [{:as ev-msg :keys [uid send-fn]}]
-  (chsk-send! uid [:osmus/state "State"]))
+  [sev-msg])
 
 (defmethod -event-msg-handler :chsk/uidport-open
-  [{:keys [client-id] :as ev-msg}])
+  [{:keys [uid] :as ev-msg}]
+  (println "uidport-open" uid)
+  (chsk-send! uid [:osmus/state @game-state]))
 
 (defmethod -event-msg-handler :chsk/uidport-close [_] ())
 (defmethod -event-msg-handler :chsk/ws-ping [_] ())
 
 (defonce ws-router_ (atom nil))
-(defn  stop-ws-router! [] (when-let [stop-fn @ws-router_] (stop-fn)))
+(defn stop-ws-router! [] (when-let [stop-fn @ws-router_] (stop-fn)))
 (defn start-ws-router! []
   (stop-ws-router!)
   (reset! ws-router_

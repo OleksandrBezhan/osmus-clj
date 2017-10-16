@@ -54,35 +54,23 @@
 
 (defn event-msg-handler
   "Wraps `-event-msg-handler` with logging, error catching, etc."
-  [{:as ev-msg :keys [id ?data event]}]
+  [ev-msg]
   (-event-msg-handler ev-msg))
 
 (defmethod -event-msg-handler
   :default                                                  ; Default/fallback case (no other matching handler)
-  [{:as ev-msg :keys [event]}]
-  (println "Unhandled event:" event))
-
-(defmethod -event-msg-handler :chsk/state
-  [{:as ev-msg :keys [?data]}]
-  (let [[old-state-map new-state-map] (have vector? ?data)]
-    (if (:first-open? new-state-map)
-      (println "Channel socket successfully established!:" new-state-map)
-      (println "Channel socket state change:" new-state-map))))
+  [{:keys [event]}]
+  ;(println "Unhandled event:" event)
+  )
 
 (defmethod -event-msg-handler :chsk/recv
-  [ev-msg]
-  (println "Push event from server:" ev-msg))
-
-(defmethod -event-msg-handler :chsk/handshake [{:as ev-msg :keys [?data]}])
-
-(defmethod -event-msg-handler :osmus/state
-  [{:as ev-msg :keys [?data]}]
-  (println "Got state msg:" ev-msg)
-  (let [[?uid ?csrf-token ?handshake-data] ?data]))
-
-(defmethod -event-msg-handler :osmus/test
-  [ev-msg]
-  (println "Got test msg:" ev-msg))
+  [{:keys [?data]}]
+  (let [[msg-id msg] ?data]
+    (condp = msg-id
+      :osmus/state (println "recv state" msg)
+      (reset! game-state msg)
+      (println "received unknown msg" ?data)))
+  )
 
 (defonce ws-router_ (atom nil))
 (defn stop-ws-router! [] (when-let [stop-f @ws-router_] (stop-f)))
@@ -101,11 +89,12 @@
 
 (start-ws-router!)
 
-;; Macro test
-(foobar :abc 3)
+(defn render [next-time])
 
+;; Macro test
+;(foobar :abc 3)
 ;; Example of interop call to plain JS in src/cljs/foo.js
-(js/foo)
+;(js/foo)
 
 (comment
   (println "foo"))
