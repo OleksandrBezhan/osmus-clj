@@ -1,6 +1,6 @@
 (ns common.game
   (:require sc.api)
-  (:import (java.util Date)))
+  #?(:clj (:import (java.util Date))))
 
 (defn new-time []
   #?(:clj  (-> (Date.) (.getTime))

@@ -1,6 +1,7 @@
 (ns frontend.core
   (:require-macros [frontend.macro :refer [foobar]])
   (:require [common.hello :refer [foo-cljc]]
+            [common.game :as game]
             [foo.bar]
             [taoensso.sente :as sente]
             [taoensso.encore :as encore :refer-macros (have have?)]))
@@ -24,8 +25,11 @@
 ;; Defonce used to that the state is kept between reloads
 ;(defonce app-state (atom {:y 2017}))
 
-(defonce game-state (atom {:entities {1 {:x 100
+(defonce game-state (atom {:entities {1 {:id 1
+                                         :x 100
                                          :y 200
+                                         :vx 0.1
+                                         :vy 0
                                          :r 100
                                          }}}))
 
@@ -38,14 +42,8 @@
 (defn clear-rect! [c-context {:keys [x1 y1 x2 y2]}]
   (.clearRect c-context x1 y1 x2 y2))
 
-(def request-animation-frame
-  (or (.-requestAnimationFrame js/window)
-      (.-webkitRequestAnimationFrame js/window)
-      (.-mozRequestAnimationFrame js/window)
-      (.-oRequestAnimationFrame js/window)
-      (.-msRequestAnimationFrame js/window)
-      (fn [callback] (js/setTimeout callback (/ 1000 60)))))
-
+(defn request-animation-frame [handler]
+  (.requestAnimationFrame js/window handler))
 
 (defmulti -event-msg-handler
           "Multimethod to handle Sente `event-msg`s"
@@ -82,20 +80,22 @@
           (sente/start-client-chsk-router!
             ch-chsk event-msg-handler)))
 
-(defn render-handler [{:keys [width height entities]}]
-  [{:clear-rect {:x1 0 :y1 0 :x2 width :y2 height}}
+(defn render-handler [{:keys [delta c-width c-height entities]}]
+  [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
    (for [entity entities]
-     [{:fill-style "green"}
-      {:begin-path true}
-      {:arc {
-             :x                (:x entity)
-             :y                (:y entity)
-             :r                (:r entity)
-             :start-angle      0
-             :end-angle        (* 2 pi)
-             :is-anticlockwise true}}
-      {:close-path true}
-      {:fill true}])])
+     (let [next-entity (game/compute-entity-state {:entity entity :delta delta})]
+       [{:fill-style "green"}
+        {:begin-path true}
+        {:arc {
+               :x                (:x next-entity)
+               :y                (:y next-entity)
+               :r                (:r next-entity)
+               :start-angle      0
+               :end-angle        (* 2 pi)
+               :is-anticlockwise true}}
+        {:close-path true}
+        {:fill true}
+        {:update-entity next-entity}]))])
 
 (declare canvas)
 (declare c-context)
@@ -117,6 +117,16 @@
 (defn fill! [c-context]
   (.fill c-context))
 
+(defn update-entity! [{:keys [id] :as entity} game-state]
+  (swap! game-state (fn [state-v]
+                      (assoc-in state-v [:entities id] entity))))
+
+;; mutations
+(def render-state (atom {:last-render-time nil}))
+
+(defn set-last-render-time! [time]
+  (swap! render-state assoc :last-render-time time))
+
 (defn mutator!
   [mutation]
   (if (map? mutation)
@@ -126,16 +136,35 @@
                     begin-path
                     close-path
                     arc
-                    fill]} mutation]
+                    fill
+                    set-last-render-time
+                    update-entity]} mutation]
         (when clear-rect (clear-rect! c-context clear-rect))
         (when fill-style (fill-style! c-context fill-style))
         (when begin-path (begin-path! c-context))
         (when close-path (close-path! c-context))
         (when arc (arc! c-context arc))
-        (when fill (fill! c-context))))
+        (when fill (fill! c-context))
+        (when set-last-render-time (set-last-render-time! set-last-render-time))
+        (when update-entity (update-entity! update-entity game-state))))
 
     (doseq [mut mutation]
       (mutator! mut))))
+
+(defn compute-delta [last-time? time]
+  (if last-time?
+    (- time last-time?)
+    0))
+
+(defn render-frame [time]
+  (let [delta (compute-delta (:last-render-time @render-state) time)]
+    (-> (render-handler {:c-width    c-width
+                         :c-height   c-height
+                         :entities (vals (:entities @game-state))
+                         :delta delta})
+        (conj {:set-last-render-time time})
+        (mutator!))
+    (request-animation-frame render-frame)))
 
 (defn start! []
   (js/console.log "Starting the app")
@@ -143,12 +172,7 @@
   (def c-context (.getContext canvas "2d"))
   (def c-height (.-height canvas))
   (def c-width (.-width canvas))
-  (request-animation-frame (fn [time]
-                             (-> (render-handler {:width    c-width
-                                                  :height   c-height
-                                                  :entities (vals (:entities @game-state))})
-                                 (mutator!))))
-  )
+  (request-animation-frame render-frame))
 
 ;; When this namespace is (re)loaded the Reagent app is mounted to DOM
 (start!)
