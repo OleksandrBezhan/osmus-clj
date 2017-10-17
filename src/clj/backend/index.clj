@@ -13,7 +13,7 @@
        [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
        (include-css "css/main.css")]
       [:body
-       [:div.container [:div#app.app-wrapper]]
+       [:div.container [:canvas#canvas {:width "640" :height "480"}]]
        (include-js "js/main.js")])))
 
 (def test-page

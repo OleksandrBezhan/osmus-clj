@@ -1,12 +1,13 @@
 (ns frontend.core
   (:require-macros [frontend.macro :refer [foobar]])
-  (:require [reagent.core :as r]
-            [common.hello :refer [foo-cljc]]
+  (:require [common.hello :refer [foo-cljc]]
             [foo.bar]
             [taoensso.sente :as sente]
             [taoensso.encore :as encore :refer-macros (have have?)]))
 
 (enable-console-print!)
+
+(def pi (-> js/Math .-PI))
 
 ;; WS
 (let [{:keys [chsk ch-recv send-fn state]}
@@ -21,7 +22,12 @@
 
 ;; Reagent application state
 ;; Defonce used to that the state is kept between reloads
-(defonce app-state (r/atom {:y 2017}))
+;(defonce app-state (atom {:y 2017}))
+
+(defonce game-state (atom {:entities {1 {:x 100
+                                         :y 200
+                                         :r 100
+                                         }}}))
 
 (defn join []
   (println "Sending osmus/join")
@@ -29,23 +35,17 @@
 
 (defn shoot [])
 
-(defn main []
-  [:div
-   [:canvas#canvas {:width "640" :height "480"}]
-   [:button {:on-click join} "Join"]
-   [:button {:on-click shoot} "Shoot"]
-   [:h1 (foo-cljc (:y @app-state))]
-   [:div.btn-toolbar
-    [:button.btn.btn-danger
-     {:type     "button"
-      :on-click #(swap! app-state update :y inc)} "+"]
-    [:button.btn.btn-success
-     {:type     "button"
-      :on-click #(swap! app-state update :y dec)} "-"]
-    [:button.btn.btn-default
-     {:type     "button"
-      :on-click #(js/console.log @app-state)}
-     "Console.log"]]])
+(defn clear-rect! [c-context {:keys [x1 y1 x2 y2]}]
+  (.clearRect c-context x1 y1 x2 y2))
+
+(def request-animation-frame
+  (or (.-requestAnimationFrame js/window)
+      (.-webkitRequestAnimationFrame js/window)
+      (.-mozRequestAnimationFrame js/window)
+      (.-oRequestAnimationFrame js/window)
+      (.-msRequestAnimationFrame js/window)
+      (fn [callback] (js/setTimeout callback (/ 1000 60)))))
+
 
 (defmulti -event-msg-handler
           "Multimethod to handle Sente `event-msg`s"
@@ -67,8 +67,10 @@
   [{:keys [?data]}]
   (let [[msg-id msg] ?data]
     (condp = msg-id
-      :osmus/state (println "recv state" msg)
-      (reset! game-state msg)
+      :osmus/state (do
+                     ;(println "recv state" msg)
+                     ;(reset! game-state msg)
+                     )
       (println "received unknown msg" ?data)))
   )
 
@@ -80,16 +82,78 @@
           (sente/start-client-chsk-router!
             ch-chsk event-msg-handler)))
 
+(defn render-handler [{:keys [width height entities]}]
+  [{:clear-rect {:x1 0 :y1 0 :x2 width :y2 height}}
+   (for [entity entities]
+     [{:fill-style "green"}
+      {:begin-path true}
+      {:arc {
+             :x                (:x entity)
+             :y                (:y entity)
+             :r                (:r entity)
+             :start-angle      0
+             :end-angle        (* 2 pi)
+             :is-anticlockwise true}}
+      {:close-path true}
+      {:fill true}])])
+
+(declare canvas)
+(declare c-context)
+(declare c-height)
+(declare c-width)
+
+(defn fill-style! [c-context color]
+  (aset c-context "fillStyle" color))
+
+(defn begin-path! [c-context]
+  (.beginPath c-context))
+
+(defn close-path! [c-context]
+  (.closePath c-context))
+
+(defn arc! [c-context {:keys [x y r start-angle end-angle is-anticlockwise]}]
+  (.arc c-context x y r start-angle end-angle is-anticlockwise))
+
+(defn fill! [c-context]
+  (.fill c-context))
+
+(defn mutator!
+  [mutation]
+  (if (map? mutation)
+    (do
+      (let [{:keys [clear-rect
+                    fill-style
+                    begin-path
+                    close-path
+                    arc
+                    fill]} mutation]
+        (when clear-rect (clear-rect! c-context clear-rect))
+        (when fill-style (fill-style! c-context fill-style))
+        (when begin-path (begin-path! c-context))
+        (when close-path (close-path! c-context))
+        (when arc (arc! c-context arc))
+        (when fill (fill! c-context))))
+
+    (doseq [mut mutation]
+      (mutator! mut))))
+
 (defn start! []
   (js/console.log "Starting the app")
-  (r/render-component [main] (js/document.getElementById "app")))
+  (def canvas (.getElementById js/document "canvas"))
+  (def c-context (.getContext canvas "2d"))
+  (def c-height (.-height canvas))
+  (def c-width (.-width canvas))
+  (request-animation-frame (fn [time]
+                             (-> (render-handler {:width    c-width
+                                                  :height   c-height
+                                                  :entities (vals (:entities @game-state))})
+                                 (mutator!))))
+  )
 
 ;; When this namespace is (re)loaded the Reagent app is mounted to DOM
 (start!)
 
 (start-ws-router!)
-
-(defn render [next-time])
 
 ;; Macro test
 ;(foobar :abc 3)

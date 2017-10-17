@@ -49,8 +49,8 @@
     {:small entity2 :big entity1}))
 
 (defn compute-collisions [game-state]
-  (for [[_ entity1] game-state]
-    (for [[_ entity2] game-state]
+  (for [[_ entity1] (:entities game-state)]
+    (for [[_ entity2] (:entities game-state)]
       (if (and (not= entity1 entity2)
                (intersects entity1 entity2))
         (transfer-mass (find-small-and-big entity1 entity2))))))
@@ -60,25 +60,25 @@
 (defn load-game-state [new-game-state]
   (reset! game-state new-game-state))
 
-(load-game-state {1 {
-                     :type :blob
-                     :id   1
-                     :x    100
-                     :y    400
-                     :r    10
-                     :vx   0.1
-                     :vy   -0.1
-                     }
-                  2 {
-                     :type :player
-                     :id   1
-                     :name "Alex"
-                     :x    200
-                     :y    100
-                     :r    5
-                     :vx   -0.1
-                     :vy   0.2
-                     }})
+(load-game-state {:entities {1 {
+                                :type :blob
+                                :id   1
+                                :x    100
+                                :y    400
+                                :r    10
+                                :vx   0.1
+                                :vy   -0.1
+                                }
+                             2 {
+                                :type :player
+                                :id   1
+                                :name "Alex"
+                                :x    200
+                                :y    100
+                                :r    5
+                                :vx   -0.1
+                                :vy   0.2
+                                }}})
 
 (comment
   ;(def delta (- (new-time) @state-time))
