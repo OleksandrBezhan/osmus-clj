@@ -28,7 +28,7 @@
 (defonce game-state (atom {:entities {1 {:id 1
                                          :x  150
                                          :y  200
-                                         :vx 1
+                                         :vx 0
                                          :vy 0
                                          :r  100
                                          }}}))
