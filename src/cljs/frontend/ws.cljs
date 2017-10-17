@@ -2,8 +2,7 @@
   (:require [common.hello :refer [foo-cljc]]
             [frontend.input :as input]
             [common.game :as game]
-            [taoensso.sente :as sente]
-            [taoensso.encore :as encore :refer-macros (have have?)]))
+            [taoensso.sente :as sente]))
 
 (defmulti -event-msg-handler
           "Multimethod to handle Sente `event-msg`s"

@@ -1,12 +1,9 @@
 (ns frontend.core
-  (:require-macros [frontend.macro :refer [foobar]])
   (:require [common.hello :refer [foo-cljc]]
             [frontend.input :as input]
             [frontend.ws :as ws]
             [common.game :as game]
-            [foo.bar]
-            [taoensso.sente :as sente]
-            [taoensso.encore :as encore :refer-macros (have have?)]))
+            [foo.bar]))
 
 (enable-console-print!)
 
@@ -44,10 +41,10 @@
 (defn render-entities [{:keys [delta c-width c-height entities]}]
   [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
    (for [entity entities]
-     (let [next-entity (game/compute-entity-state {:entity entity
-                                       :delta delta
-                                       :game-width c-width
-                                       :game-height c-height})]
+     (let [next-entity (game/compute-entity-state {:entity      entity
+                                                   :delta       delta
+                                                   :game-width  c-width
+                                                   :game-height c-height})]
 
        [(render-entity next-entity)
         {:update-entity next-entity}]))])
@@ -60,6 +57,9 @@
 ;; mutations
 (defn fill-style! [c-context color]
   (aset c-context "fillStyle" color))
+
+;(defn fill-text! [c-context {:keys [text x y max-width?] :as args}]
+;  (.fillText c-context text x y max-width?))
 
 (defn begin-path! [c-context]
   (.beginPath c-context))
@@ -80,19 +80,27 @@
 (defn set-last-render-time! [time]
   (swap! render-state assoc :last-render-time time))
 
+;(defn font! [c-context font]
+;  (aset c-context "font" font))
+
 (defn mutator!
   [mutation]
   (if (map? mutation)
     (do
       (let [{:keys [clear-rect
-                    fill-style
                     begin-path
                     close-path
                     arc
                     fill
+                    fill-text
+                    fill-style
+                    font
                     set-last-render-time
-                    update-entity]} mutation]
+                    update-entity
+                    update-fps]} mutation]
         (when clear-rect (clear-rect! c-context clear-rect))
+        ;(when font (font! c-context font))
+        ;(when fill-text (fill-text! c-context fill-text))
         (when fill-style (fill-style! c-context fill-style))
         (when begin-path (begin-path! c-context))
         (when close-path (close-path! c-context))
@@ -113,15 +121,25 @@
     (- time last-time?)
     0))
 
+;(defn render-fps [delta]
+;  (when (> delta 0)
+;    (let [fps (-> (/ 1 delta) (* 1000))]
+;      [{:fill-style "Black"}
+;       {:font "normal 16pt Arial"}
+;       {:fill-text {:text (str fps " fps")
+;                    :x    100
+;                    :y    260}}])))
+
 (defn render-frame! [time]
   (let [delta (compute-delta (:last-render-time @render-state) time)]
-    (-> (render-entities {:c-width c-width
-                         :c-height c-height
-                         :entities (vals (:entities @game-state))
-                         :delta    delta})
+    (-> (render-entities {:c-width  c-width
+                          :c-height c-height
+                          :entities (vals (:entities @game-state))
+                          :delta    delta})
+        ;(conj (render-fps delta))
         (conj {:set-last-render-time time})
-        (mutator!))
-    (request-animation-frame render-frame!)))
+        (mutator!)
+        ((fn [_] (request-animation-frame render-frame!))))))
 
 (defn start! []
   (js/console.log "Starting the app")
@@ -129,7 +147,18 @@
   (def c-context (.getContext canvas "2d"))
   (def c-height (.-height canvas))
   (def c-width (.-width canvas))
-  (request-animation-frame render-frame!))
+  (request-animation-frame render-frame!)
+
+  ;(-> [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
+  ;     {:fill-style "Black"}
+  ;     {:font "normal 16pt Arial"}
+  ;     {:fill-text {:text "60 fps" :x 10 :y 26}}]
+  ;    (mutator!))
+
+  ;(.clearRect c-context 0 0 c-width c-height)
+  ;(aset c-context "fillStyle" "Black")
+  ;(aset c-context "font" "normal 16pt Arial")
+  )
 
 (defn run []
   (start!)
