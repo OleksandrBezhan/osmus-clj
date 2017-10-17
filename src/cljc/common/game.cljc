@@ -6,6 +6,8 @@
   #?(:clj  (-> (Date.) (.getTime))
      :cljs (-> (js/Date.) (.getTime))))
 
+(def shot-speed-multiplier 0.1)
+
 (def state-time (atom (new-time)))
 
 (defn compute-position [{delta :delta entity :entity}]
@@ -38,6 +40,14 @@
         diff (/ overlaption 2)]
     {:small (-> small (update :r - diff))
      :big   (-> big (update :r + diff))}))
+
+(defn shoot [{:keys [angle entity]}]
+  (let [ex (Math/cos angle)
+        ey (Math/sin angle)
+        next-entity (-> entity
+                        (update :vx - (* ex shot-speed-multiplier))
+                        (update :vy - (* ey shot-speed-multiplier)))]
+    {:update-entity next-entity}))
 
 (defn in-bounds [{:keys [entity game-width game-height]}]
   (and (< (:r entity) (:x entity))

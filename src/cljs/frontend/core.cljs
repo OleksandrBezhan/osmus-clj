@@ -1,6 +1,7 @@
 (ns frontend.core
   (:require-macros [frontend.macro :refer [foobar]])
   (:require [common.hello :refer [foo-cljc]]
+            [frontend.input :as input]
             [common.game :as game]
             [foo.bar]
             [taoensso.sente :as sente]
@@ -153,6 +154,10 @@
     (doseq [mut mutation]
       (mutator! mut))))
 
+(defn shoot! [args]
+  (-> (game/shoot args)
+      (mutator!)))
+
 (defn compute-delta [last-time? time]
   (if last-time?
     (- time last-time?)
@@ -179,6 +184,8 @@
 ;; When this namespace is (re)loaded the Reagent app is mounted to DOM
 (start!)
 
+(input/init! {:shoot-fn      shoot!
+              :get-entity-fn #(-> @game-state :entities vals first)})
 (start-ws-router!)
 
 ;; Macro test
