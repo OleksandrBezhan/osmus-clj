@@ -1,5 +1,5 @@
 (ns common.game
-  (:require sc.api)
+  #?(:clj (:require sc.api))
   #?(:clj (:import (java.util Date))))
 
 (defn new-time []
@@ -8,7 +8,7 @@
 
 (def state-time (atom (new-time)))
 
-(defn compute-entity-state [{delta :delta entity :entity}]
+(defn compute-position [{delta :delta entity :entity}]
   (let [x-delta (-> entity :vx (* (/ delta 10)))
         y-delta (-> entity :vy (* (/ delta 10)))]
     (-> entity
@@ -17,7 +17,7 @@
 
 (defn compute-game-state [{:keys [delta game-state] :as comp-ctx}]
   (map (fn [[entity-id entity]]
-         (compute-entity-state {:delta delta :entity entity}))
+         (compute-position {:delta delta :entity entity}))
        game-state))
 
 (defn intersects [entity1 entity2]
@@ -36,12 +36,41 @@
 (defn transfer-mass [{:keys [small big] :as entities}]
   (let [overlaption (overlap entities)
         diff (/ overlaption 2)]
-    (sc.api/spy
-      {:small (-> small (update :r - diff))
-       :big   (-> big (update :r + diff))})))
+    {:small (-> small (update :r - diff))
+     :big   (-> big (update :r + diff))}))
 
-(sc.api/defsc 9)
-(distance-from {:small {:x 0 :y 0 :r 100} :big {:x 101 :y 101 :r 120}})
+(defn in-bounds [{:keys [entity game-width game-height]}]
+  (and (< (:r entity) (:x entity))
+       (< (:r entity) (:y entity))
+       (< (:x entity) (- game-width (:r entity)))
+       (< (:y entity) (- game-height (:r entity)))))
+
+(defn reposition-in-bounds [{:keys [entity game-width game-height]}]
+  (let [{:keys [x y r]} entity
+        max-width (- game-width r)
+        max-height (- game-height r)]
+    (cond
+      (< x r)
+      (-> entity
+          (assoc :x r)
+          (update :vx -))
+
+      (< y r)
+      (-> entity
+          (assoc :y r)
+          (update :vy -))
+
+      (> x max-width)
+      (-> entity
+          (assoc :x max-width)
+          (update :vx -))
+
+      (> y max-height)
+      (-> entity
+          (assoc :y max-height)
+          (update :vy -))
+
+      :else entity)))
 
 (defn find-small-and-big [entity1 entity2]
   (if (< (:r entity1) (:r entity2))

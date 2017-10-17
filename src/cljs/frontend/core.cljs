@@ -26,11 +26,11 @@
 ;(defonce app-state (atom {:y 2017}))
 
 (defonce game-state (atom {:entities {1 {:id 1
-                                         :x 100
-                                         :y 200
-                                         :vx 0.1
+                                         :x  150
+                                         :y  200
+                                         :vx 1
                                          :vy 0
-                                         :r 100
+                                         :r  100
                                          }}}))
 
 (defn join []
@@ -83,7 +83,9 @@
 (defn render-handler [{:keys [delta c-width c-height entities]}]
   [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
    (for [entity entities]
-     (let [next-entity (game/compute-entity-state {:entity entity :delta delta})]
+     (let [computed-entity (game/compute-position {:entity entity :delta delta})
+           args {:entity computed-entity :game-width c-width :game-height c-height}
+           next-entity (if (game/in-bounds args) computed-entity (game/reposition-in-bounds args))]
        [{:fill-style "green"}
         {:begin-path true}
         {:arc {
@@ -158,10 +160,10 @@
 
 (defn render-frame [time]
   (let [delta (compute-delta (:last-render-time @render-state) time)]
-    (-> (render-handler {:c-width    c-width
-                         :c-height   c-height
+    (-> (render-handler {:c-width  c-width
+                         :c-height c-height
                          :entities (vals (:entities @game-state))
-                         :delta delta})
+                         :delta    delta})
         (conj {:set-last-render-time time})
         (mutator!))
     (request-animation-frame render-frame)))
