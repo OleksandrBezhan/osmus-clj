@@ -82,6 +82,12 @@
 
       :else entity)))
 
+(defn compute-entity-state [{:keys [delta entity game-width game-height] :as args}]
+  (let [computed-entity (compute-position args)]
+    (if (in-bounds (assoc args :entity computed-entity))
+      computed-entity
+      (reposition-in-bounds (assoc args :entity computed-entity)))))
+
 (defn find-small-and-big [entity1 entity2]
   (if (< (:r entity1) (:r entity2))
     {:small entity1 :big entity2}
