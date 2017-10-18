@@ -19,7 +19,7 @@
 
 
 (def is-frame-throttling false)
-(def frame-throttling-threshold 1000)
+(def frame-throttling-threshold 500)
 
 (defn format-number
   "Format a float number"
@@ -121,6 +121,9 @@
   (swap! game-state (fn [state-v]
                       (assoc-in state-v [:entities id] entity))))
 
+(defn add-shot-blob! [blob game-state]
+  (swap! game-state update :entities assoc (:id blob) blob))
+
 (defn mutator!
   [mutation]
   (if (map? mutation)
@@ -136,7 +139,8 @@
                     set-last-render-time
                     set-last-frame-time
                     update-entity
-                    update-fps]} mutation]
+                    update-fps
+                    add-shot-blob]} mutation]
         (when clear-rect (clear-rect! c-context clear-rect))
         (when font (font! c-context font))
         (when fill-text (fill-text! c-context fill-text))
@@ -147,7 +151,8 @@
         (when fill (fill! c-context))
         (when set-last-render-time (set-last-render-time! set-last-render-time))
         (when set-last-frame-time (set-last-frame-time! set-last-frame-time))
-        (when update-entity (update-entity! update-entity game-state))))
+        (when update-entity (update-entity! update-entity game-state))
+        (when add-shot-blob (add-shot-blob! add-shot-blob game-state))))
 
     (doseq [mut mutation]
       (mutator! mut))))

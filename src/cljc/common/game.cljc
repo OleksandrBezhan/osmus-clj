@@ -1,6 +1,8 @@
 (ns common.game
-  #?(:clj (:require sc.api))
-  #?(:clj (:import (java.util Date))))
+  #?(:clj
+     (:require sc.api))
+  #?(:clj
+     (:import (java.util Date))))
 
 (defn new-time []
   #?(:clj  (-> (Date.) (.getTime))
@@ -8,12 +10,19 @@
 
 (def pi #?(:cljs (-> js/Math .-PI)))
 
-(def shot-speed-multiplier 0.1)
+(def shot-blob-speed-multiplier 2)
+
+(def shot-player-speed-multiplier 0.7)
+
+(def shot-area-multiplier 0.002)
 
 (defn compute-delta [last-time? time]
   (if last-time?
     (- time last-time?)
     0))
+
+(defn area [{:keys [r]}]
+  (* pi r r))
 
 (defn compute-position [{delta :delta entity :entity}]
   (let [x-delta (-> entity :vx (* (/ delta 10)))
@@ -46,13 +55,46 @@
     {:small (-> small (update :r - diff))
      :big   (-> big (update :r + diff))}))
 
+(comment
+  (def entity {:x 10 :y 10 :r 5 :vx 1 :vy 1})
+  (def shoot-x 1)
+  (def shoot-y 0))
+
+(defn abs [n]
+  #?(:cljs (.abs js/Math n)))
+
+(defn area-to-radius [area]
+  (-> area (Math/abs) (/ pi) (Math/sqrt)))
+
+(defn add-area [entity area]
+  (let [r (area-to-radius area)
+        sign (if (pos? area) 1 -1)
+        r-add (* sign r)]
+    (update entity :r + r-add)))
+
+(defn create-blob [{:keys [shoot-x shoot-y entity]}]
+  {:x  (-> entity :x (+ (-> entity :r (* shoot-x))))
+   :y  (-> entity :y (+ (-> entity :r (* shoot-y))))
+   :vx (-> entity :vx (+ (* shoot-x shot-blob-speed-multiplier)))
+   :vy (-> entity :vy (+ (* shoot-y shot-blob-speed-multiplier)))
+   :id 3})
+
+(defn slice-shot-blob [{:keys [shoot-x shoot-y entity] :as args}]
+  (let [area-diff (-> entity area (* shot-area-multiplier))
+        blob (-> (create-blob args) (add-area area-diff))
+        next-entity (add-area entity (- area-diff))]
+    (println area-diff (area-to-radius area-diff))
+    {:entity next-entity :blob blob}))
+
 (defn shoot [{:keys [angle entity]}]
-  (let [ex (Math/cos angle)
-        ey (Math/sin angle)
+  (let [shoot-x (Math/cos angle)
+        shoot-y (Math/sin angle)
+        {:keys [blob entity]} (slice-shot-blob {:shoot-x shoot-x :shoot-y shoot-y :entity entity})
         next-entity (-> entity
-                        (update :vx - (* ex shot-speed-multiplier))
-                        (update :vy - (* ey shot-speed-multiplier)))]
-    {:update-entity next-entity}))
+                        (update :vx - (* shoot-x shot-player-speed-multiplier))
+                        (update :vy - (* shoot-y shot-player-speed-multiplier)))]
+    {:update-entity next-entity
+     :add-shot-blob    blob}))
 
 (defn in-bounds [{:keys [entity game-width game-height]}]
   (and (< (:r entity) (:x entity))
