@@ -1,7 +1,7 @@
 (ns frontend.core
   (:require [common.hello :refer [foo-cljc]]
-            [frontend.input :as input]
-            [frontend.ws :as ws]
+    [frontend.input :as input]
+    [frontend.ws :as ws]
             [common.game :as game]
             [foo.bar]))
 
@@ -58,8 +58,8 @@
 (defn fill-style! [c-context color]
   (aset c-context "fillStyle" color))
 
-;(defn fill-text! [c-context {:keys [text x y max-width?] :as args}]
-;  (.fillText c-context text x y max-width?))
+(defn fill-text! [c-context {:keys [text x y] :as args}]
+  (.fillText c-context text x y))
 
 (defn begin-path! [c-context]
   (.beginPath c-context))
@@ -80,8 +80,8 @@
 (defn set-last-render-time! [time]
   (swap! render-state assoc :last-render-time time))
 
-;(defn font! [c-context font]
-;  (aset c-context "font" font))
+(defn font! [c-context font]
+  (aset c-context "font" font))
 
 (defn mutator!
   [mutation]
@@ -99,8 +99,8 @@
                     update-entity
                     update-fps]} mutation]
         (when clear-rect (clear-rect! c-context clear-rect))
-        ;(when font (font! c-context font))
-        ;(when fill-text (fill-text! c-context fill-text))
+        (when font (font! c-context font))
+        (when fill-text (fill-text! c-context fill-text))
         (when fill-style (fill-style! c-context fill-style))
         (when begin-path (begin-path! c-context))
         (when close-path (close-path! c-context))
@@ -121,14 +121,14 @@
     (- time last-time?)
     0))
 
-;(defn render-fps [delta]
-;  (when (> delta 0)
-;    (let [fps (-> (/ 1 delta) (* 1000))]
-;      [{:fill-style "Black"}
-;       {:font "normal 16pt Arial"}
-;       {:fill-text {:text (str fps " fps")
-;                    :x    100
-;                    :y    260}}])))
+(defn render-fps [delta]
+  (when (> delta 0)
+    (let [fps (-> (/ 1 delta) (* 1000))]
+      [{:fill-style "Black"}
+       {:font "normal 16pt Arial"}
+       {:fill-text {:text (str (int fps) " fps")
+                    :x    10
+                    :y    26}}])))
 
 (defn render-frame! [time]
   (let [delta (compute-delta (:last-render-time @render-state) time)]
@@ -136,7 +136,7 @@
                           :c-height c-height
                           :entities (vals (:entities @game-state))
                           :delta    delta})
-        ;(conj (render-fps delta))
+        (conj (render-fps delta))
         (conj {:set-last-render-time time})
         (mutator!)
         ((fn [_] (request-animation-frame render-frame!))))))
@@ -147,18 +147,7 @@
   (def c-context (.getContext canvas "2d"))
   (def c-height (.-height canvas))
   (def c-width (.-width canvas))
-  (request-animation-frame render-frame!)
-
-  ;(-> [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
-  ;     {:fill-style "Black"}
-  ;     {:font "normal 16pt Arial"}
-  ;     {:fill-text {:text "60 fps" :x 10 :y 26}}]
-  ;    (mutator!))
-
-  ;(.clearRect c-context 0 0 c-width c-height)
-  ;(aset c-context "fillStyle" "Black")
-  ;(aset c-context "font" "normal 16pt Arial")
-  )
+  (request-animation-frame render-frame!))
 
 (defn run []
   (start!)
