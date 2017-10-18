@@ -1,7 +1,6 @@
 (ns frontend.gui
   (:require [common.hello :refer [foo-cljc]]
             [frontend.input :as input]
-            [frontend.ws :as ws]
             [common.game :as game]
             [foo.bar]
             [cljs.pprint :as pprint]))
@@ -18,6 +17,7 @@
                          :last-frame-time  nil}))
 
 
+(def is-rendering-debug true)
 (def is-frame-throttling false)
 (def frame-throttling-threshold 500)
 
@@ -54,9 +54,10 @@
           :is-anticlockwise true}}
    {:close-path true}
    {:fill true}
-   (render-entity-debug {:entity entity
-                         :x      (- (:x entity) (/ (:r entity) 2))
-                         :y      (+ (:y entity) (:r entity) 20)})])
+   (if is-rendering-debug
+     (render-entity-debug {:entity entity
+                           :x      (- (:x entity) (/ (:r entity) 2))
+                           :y      (+ (:y entity) (:r entity) 20)}))])
 
 (defn render-entities [{:keys [delta c-width c-height entities]}]
   [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
@@ -121,8 +122,16 @@
   (swap! game-state (fn [state-v]
                       (assoc-in state-v [:entities id] entity))))
 
+(defn add-entity! [entity game-state]
+  (swap! game-state update :entities assoc (:id entity) entity))
+
 (defn add-shot-blob! [blob game-state]
-  (swap! game-state update :entities assoc (:id blob) blob))
+  (add-entity! blob game-state))
+
+(defn gen-entity-id! []
+  (let [id (->> @game-state :entities keys (apply max) (+ 1))]
+    (add-entity! {:id id} game-state)
+    id))
 
 (defn mutator!
   [mutation]
@@ -158,7 +167,7 @@
       (mutator! mut))))
 
 (defn shoot! [args]
-  (-> (game/shoot args)
+  (-> (game/shoot (assoc args :gen-entity-id-fn gen-entity-id!))
       (mutator!)))
 
 (defn render-frame [time render-state]
@@ -169,7 +178,7 @@
                               :c-height c-height
                               :entities (vals (:entities @game-state))
                               :delta    delta})
-            (conj (render-fps delta))
+            (conj (when is-rendering-debug (render-fps delta)))
             (conj {:set-last-render-time time
                    :set-last-frame-time  time})))
 
@@ -193,7 +202,8 @@
   (start!)
   (input/init! {:shoot-fn      shoot!
                 :get-entity-fn #(-> @game-state :entities vals first)})
-  (let [{:keys [start]} (ws/init!)] (start)))
+  ;(let [{:keys [start]} (ws/init!)] (start))
+  )
 
 (main!)
 

@@ -6,7 +6,7 @@
 
 (defn new-time []
   #?(:clj  (-> (Date.) (.getTime))
-     :cljs (-> (js/Date.) (.getTime))))
+       :cljs (-> (js/Date.) (.getTime))))
 
 (def pi #?(:cljs (-> js/Math .-PI)))
 
@@ -86,7 +86,7 @@
     (println area-diff (area-to-radius area-diff))
     {:entity next-entity :blob blob}))
 
-(defn shoot [{:keys [angle entity]}]
+(defn shoot [{:keys [angle entity gen-entity-id-fn]}]
   (let [shoot-x (Math/cos angle)
         shoot-y (Math/sin angle)
         {:keys [blob entity]} (slice-shot-blob {:shoot-x shoot-x :shoot-y shoot-y :entity entity})
@@ -94,7 +94,7 @@
                         (update :vx - (* shoot-x shot-player-speed-multiplier))
                         (update :vy - (* shoot-y shot-player-speed-multiplier)))]
     {:update-entity next-entity
-     :add-shot-blob    blob}))
+     :add-shot-blob (assoc blob :id (gen-entity-id-fn))}))
 
 (defn in-bounds [{:keys [entity game-width game-height]}]
   (and (< (:r entity) (:x entity))
