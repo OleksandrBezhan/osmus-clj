@@ -1,9 +1,10 @@
 (ns frontend.gui
   (:require [common.hello :refer [foo-cljc]]
-    [frontend.input :as input]
-    [frontend.ws :as ws]
+            [frontend.input :as input]
+            [frontend.ws :as ws]
             [common.game :as game]
-            [foo.bar]))
+            [foo.bar]
+            [cljs.pprint :as pprint]))
 
 (defonce game-state (atom {:entities {1 {:id 1
                                          :x  150
@@ -13,7 +14,33 @@
                                          :r  100
                                          }}}))
 
-(def render-state (atom {:last-render-time nil}))
+(def render-state (atom {:last-render-time nil
+                         :last-frame-time  nil}))
+
+
+(def is-frame-throttling false)
+(def frame-throttling-threshold 1000)
+
+(defn format-number
+  "Format a float number"
+  [n]
+  (pprint/cl-format nil "~,1f" n))
+
+(defn render-entity-debug [{:keys [entity x y]}]
+  (let [ex (:x entity)
+        ey (:y entity)
+        evx (:vx entity)
+        evy (:vy entity)
+        er (:r entity)
+        texts [(str "  xy: [" (format-number ex) " " (format-number ey) "]")
+               (str "vxy: [" (format-number evx) " " (format-number evy) "]")
+               (str "    r: [" (format-number er) "]")]]
+    [{:fill-style "Black"}
+     {:font "normal 10pt Arial"}
+     (map-indexed (fn [i text]
+                    {:fill-text {:text text
+                                 :x    x
+                                 :y    (+ y (* i 20))}}) texts)]))
 
 (defn render-entity [entity]
   [{:fill-style "green"}
@@ -26,7 +53,10 @@
           :end-angle        (* 2 game/pi)
           :is-anticlockwise true}}
    {:close-path true}
-   {:fill true}])
+   {:fill true}
+   (render-entity-debug {:entity entity
+                         :x      (- (:x entity) (/ (:r entity) 2))
+                         :y      (+ (:y entity) (:r entity) 20)})])
 
 (defn render-entities [{:keys [delta c-width c-height entities]}]
   [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
@@ -81,6 +111,9 @@
 (defn set-last-render-time! [time]
   (swap! render-state assoc :last-render-time time))
 
+(defn set-last-frame-time! [time]
+  (swap! render-state assoc :last-frame-time time))
+
 (defn font! [c-context font]
   (aset c-context "font" font))
 
@@ -101,6 +134,7 @@
                     fill-style
                     font
                     set-last-render-time
+                    set-last-frame-time
                     update-entity
                     update-fps]} mutation]
         (when clear-rect (clear-rect! c-context clear-rect))
@@ -112,6 +146,7 @@
         (when arc (arc! c-context arc))
         (when fill (fill! c-context))
         (when set-last-render-time (set-last-render-time! set-last-render-time))
+        (when set-last-frame-time (set-last-frame-time! set-last-frame-time))
         (when update-entity (update-entity! update-entity game-state))))
 
     (doseq [mut mutation]
@@ -121,16 +156,24 @@
   (-> (game/shoot args)
       (mutator!)))
 
+(defn render-frame [time render-state]
+  (let [frame-throttling-delta (- time (:last-render-time @render-state))]
+    (if (or (not is-frame-throttling) (and is-frame-throttling (> frame-throttling-delta frame-throttling-threshold)))
+      (let [delta (game/compute-delta (:last-frame-time @render-state) time)]
+        (-> (render-entities {:c-width  c-width
+                              :c-height c-height
+                              :entities (vals (:entities @game-state))
+                              :delta    delta})
+            (conj (render-fps delta))
+            (conj {:set-last-render-time time
+                   :set-last-frame-time  time})))
+
+      {:set-last-frame-time time})))
+
 (defn render-frame! [time]
-  (let [delta (game/compute-delta (:last-render-time @render-state) time)]
-    (-> (render-entities {:c-width  c-width
-                          :c-height c-height
-                          :entities (vals (:entities @game-state))
-                          :delta    delta})
-        (conj (render-fps delta))
-        (conj {:set-last-render-time time})
-        (mutator!)
-        ((fn [_] (request-animation-frame! render-frame!))))))
+  (-> (render-frame time render-state)
+      (mutator!)
+      ((fn [_] (request-animation-frame! render-frame!)))))
 
 (defn start! []
   (js/console.log "Starting the app")

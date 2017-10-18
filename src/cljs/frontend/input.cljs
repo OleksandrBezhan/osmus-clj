@@ -18,7 +18,6 @@
                     canvas
                     "click"
                     (fn [e]
-                      (println "click")
                       (-> (calculate-click-angle {:click  (event-position e)
                                                   :entity (get-entity-fn)})
                           (shoot))))))
