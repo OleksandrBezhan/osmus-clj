@@ -6,9 +6,14 @@
   #?(:clj  (-> (Date.) (.getTime))
      :cljs (-> (js/Date.) (.getTime))))
 
+(def pi #?(:cljs (-> js/Math .-PI)))
+
 (def shot-speed-multiplier 0.1)
 
-(def state-time (atom (new-time)))
+(defn compute-delta [last-time? time]
+  (if last-time?
+    (- time last-time?)
+    0))
 
 (defn compute-position [{delta :delta entity :entity}]
   (let [x-delta (-> entity :vx (* (/ delta 10)))
@@ -100,33 +105,5 @@
                (intersects entity1 entity2))
         (transfer-mass (find-small-and-big entity1 entity2))))))
 
-(def game-state (atom nil))
-
-(defn load-game-state [new-game-state]
-  (reset! game-state new-game-state))
-
-(load-game-state {:entities {1 {
-                                :type :blob
-                                :id   1
-                                :x    100
-                                :y    400
-                                :r    10
-                                :vx   0.1
-                                :vy   -0.1
-                                }
-                             2 {
-                                :type :player
-                                :id   1
-                                :name "Alex"
-                                :x    200
-                                :y    100
-                                :r    5
-                                :vx   -0.1
-                                :vy   0.2
-                                }}})
-
 (comment
-  ;(def delta (- (new-time) @state-time))
-  (deref game-state)
-  (compute-game-state {:delta 1000 :game-state @game-state})
-  )
+  (deref game-state))

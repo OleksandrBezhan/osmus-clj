@@ -1,13 +1,9 @@
-(ns frontend.core
+(ns frontend.gui
   (:require [common.hello :refer [foo-cljc]]
     [frontend.input :as input]
     [frontend.ws :as ws]
             [common.game :as game]
             [foo.bar]))
-
-(enable-console-print!)
-
-(def pi (-> js/Math .-PI))
 
 (defonce game-state (atom {:entities {1 {:id 1
                                          :x  150
@@ -19,12 +15,6 @@
 
 (def render-state (atom {:last-render-time nil}))
 
-(defn clear-rect! [c-context {:keys [x1 y1 x2 y2]}]
-  (.clearRect c-context x1 y1 x2 y2))
-
-(defn request-animation-frame [handler]
-  (.requestAnimationFrame js/window handler))
-
 (defn render-entity [entity]
   [{:fill-style "green"}
    {:begin-path true}
@@ -33,7 +23,7 @@
           :y                (:y entity)
           :r                (:r entity)
           :start-angle      0
-          :end-angle        (* 2 pi)
+          :end-angle        (* 2 game/pi)
           :is-anticlockwise true}}
    {:close-path true}
    {:fill true}])
@@ -49,12 +39,27 @@
        [(render-entity next-entity)
         {:update-entity next-entity}]))])
 
+(defn render-fps [delta]
+  (when (> delta 0)
+    (let [fps (-> (/ 1 delta) (* 1000))]
+      [{:fill-style "Black"}
+       {:font "normal 16pt Arial"}
+       {:fill-text {:text (str (int fps) " fps")
+                    :x    10
+                    :y    26}}])))
+
+;; side effects
 (declare canvas)
 (declare c-context)
 (declare c-height)
 (declare c-width)
 
-;; mutations
+(defn request-animation-frame! [handler]
+  (.requestAnimationFrame js/window handler))
+
+(defn clear-rect! [c-context {:keys [x1 y1 x2 y2]}]
+  (.clearRect c-context x1 y1 x2 y2))
+
 (defn fill-style! [c-context color]
   (aset c-context "fillStyle" color))
 
@@ -73,15 +78,15 @@
 (defn fill! [c-context]
   (.fill c-context))
 
-(defn update-entity! [{:keys [id] :as entity} game-state]
-  (swap! game-state (fn [state-v]
-                      (assoc-in state-v [:entities id] entity))))
-
 (defn set-last-render-time! [time]
   (swap! render-state assoc :last-render-time time))
 
 (defn font! [c-context font]
   (aset c-context "font" font))
+
+(defn update-entity! [{:keys [id] :as entity} game-state]
+  (swap! game-state (fn [state-v]
+                      (assoc-in state-v [:entities id] entity))))
 
 (defn mutator!
   [mutation]
@@ -116,22 +121,8 @@
   (-> (game/shoot args)
       (mutator!)))
 
-(defn compute-delta [last-time? time]
-  (if last-time?
-    (- time last-time?)
-    0))
-
-(defn render-fps [delta]
-  (when (> delta 0)
-    (let [fps (-> (/ 1 delta) (* 1000))]
-      [{:fill-style "Black"}
-       {:font "normal 16pt Arial"}
-       {:fill-text {:text (str (int fps) " fps")
-                    :x    10
-                    :y    26}}])))
-
 (defn render-frame! [time]
-  (let [delta (compute-delta (:last-render-time @render-state) time)]
+  (let [delta (game/compute-delta (:last-render-time @render-state) time)]
     (-> (render-entities {:c-width  c-width
                           :c-height c-height
                           :entities (vals (:entities @game-state))
@@ -139,7 +130,7 @@
         (conj (render-fps delta))
         (conj {:set-last-render-time time})
         (mutator!)
-        ((fn [_] (request-animation-frame render-frame!))))))
+        ((fn [_] (request-animation-frame! render-frame!))))))
 
 (defn start! []
   (js/console.log "Starting the app")
@@ -147,18 +138,16 @@
   (def c-context (.getContext canvas "2d"))
   (def c-height (.-height canvas))
   (def c-width (.-width canvas))
-  (request-animation-frame render-frame!))
+  (request-animation-frame! render-frame!))
 
-(defn run []
+(defn main! []
+  (enable-console-print!)
   (start!)
-
   (input/init! {:shoot-fn      shoot!
                 :get-entity-fn #(-> @game-state :entities vals first)})
+  (let [{:keys [start]} (ws/init!)] (start)))
 
-  (let [{:keys [start]} (ws/init!)]
-    (start)))
-
-(run)
+(main!)
 
 (comment
   (println "foo"))

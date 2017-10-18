@@ -1,4 +1,4 @@
-{:compiler-options {:main frontend.core
+{:compiler-options {:main frontend.gui
                     :asset-path "js/main.out"
                     :parallel-build true
                     :preloads [devtools.preload]
