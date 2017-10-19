@@ -35,6 +35,7 @@
                   [javax.servlet/servlet-api "2.5"] ;; Required by ring multipart middleware
                   [compojure "1.6.0"]
                   [hiccup "1.0.5"]
+                  [org.clojure/math.combinatorics "0.1.4"]
 
                   ; Frontend
                   [reagent "0.8.0-alpha1" :scope "test"]

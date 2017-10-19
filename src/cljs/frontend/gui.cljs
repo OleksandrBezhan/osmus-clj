@@ -10,8 +10,13 @@
                                          :y  200
                                          :vx 0
                                          :vy 0
-                                         :r  100
-                                         }}}))
+                                         :r  100}
+                                      2 {:id 2
+                                         :x  200
+                                         :y  290
+                                         :vx 0
+                                         :vy 0
+                                         :r  50}}}))
 
 (def render-state (atom {:last-render-time nil
                          :last-frame-time  nil}))
@@ -19,7 +24,7 @@
 
 (def is-rendering-debug true)
 (def is-frame-throttling false)
-(def frame-throttling-threshold 500)
+(def frame-throttling-threshold 10000)
 
 (defn format-number
   "Format a float number"
@@ -59,16 +64,10 @@
                            :x      (- (:x entity) (/ (:r entity) 2))
                            :y      (+ (:y entity) (:r entity) 20)}))])
 
-(defn render-entities [{:keys [delta c-width c-height entities]}]
-  [{:clear-rect {:x1 0 :y1 0 :x2 c-width :y2 c-height}}
+(defn render-entities [{:keys [delta width height entities]}]
+  [{:clear-rect {:x1 0 :y1 0 :x2 width :y2 height}}
    (for [entity entities]
-     (let [next-entity (game/compute-entity-state {:entity      entity
-                                                   :delta       delta
-                                                   :game-width  c-width
-                                                   :game-height c-height})]
-
-       [(render-entity next-entity)
-        {:update-entity next-entity}]))])
+     (render-entity entity))])
 
 (defn render-fps [delta]
   (when (> delta 0)
@@ -82,8 +81,6 @@
 ;; side effects
 (declare canvas)
 (declare c-context)
-(declare c-height)
-(declare c-width)
 
 (defn request-animation-frame! [handler]
   (.requestAnimationFrame js/window handler))
@@ -118,10 +115,6 @@
 (defn font! [c-context font]
   (aset c-context "font" font))
 
-(defn update-entity! [{:keys [id] :as entity} game-state]
-  (swap! game-state (fn [state-v]
-                      (assoc-in state-v [:entities id] entity))))
-
 (defn add-entity! [entity game-state]
   (swap! game-state update :entities assoc (:id entity) entity))
 
@@ -132,6 +125,9 @@
   (let [id (->> @game-state :entities keys (apply max) (+ 1))]
     (add-entity! {:id id} game-state)
     id))
+
+(defn set-game-state! [next-game-state game-state]
+  (reset! game-state next-game-state))
 
 (defn mutator!
   [mutation]
@@ -149,7 +145,8 @@
                     set-last-frame-time
                     update-entity
                     update-fps
-                    add-shot-blob]} mutation]
+                    add-shot-blob
+                    set-game-state]} mutation]
         (when clear-rect (clear-rect! c-context clear-rect))
         (when font (font! c-context font))
         (when fill-text (fill-text! c-context fill-text))
@@ -160,8 +157,8 @@
         (when fill (fill! c-context))
         (when set-last-render-time (set-last-render-time! set-last-render-time))
         (when set-last-frame-time (set-last-frame-time! set-last-frame-time))
-        (when update-entity (update-entity! update-entity game-state))
-        (when add-shot-blob (add-shot-blob! add-shot-blob game-state))))
+        (when add-shot-blob (add-shot-blob! add-shot-blob game-state))
+        (when set-game-state (set-game-state! set-game-state game-state))))
 
     (doseq [mut mutation]
       (mutator! mut))))
@@ -173,14 +170,16 @@
 (defn render-frame [time render-state]
   (let [frame-throttling-delta (- time (:last-render-time @render-state))]
     (if (or (not is-frame-throttling) (and is-frame-throttling (> frame-throttling-delta frame-throttling-threshold)))
-      (let [delta (game/compute-delta (:last-frame-time @render-state) time)]
-        (-> (render-entities {:c-width  c-width
-                              :c-height c-height
-                              :entities (vals (:entities @game-state))
+      (let [delta (game/compute-delta (:last-frame-time @render-state) time)
+            next-game-state (game/compute-game-state {:delta delta :game-state @game-state})]
+        (-> (render-entities {:width    (:width next-game-state)
+                              :height   (:height next-game-state)
+                              :entities (vals (:entities next-game-state))
                               :delta    delta})
             (conj (when is-rendering-debug (render-fps delta)))
             (conj {:set-last-render-time time
-                   :set-last-frame-time  time})))
+                   :set-last-frame-time  time
+                   :set-game-state       next-game-state})))
 
       {:set-last-frame-time time})))
 
@@ -193,9 +192,9 @@
   (js/console.log "Starting the app")
   (def canvas (.getElementById js/document "canvas"))
   (def c-context (.getContext canvas "2d"))
-  (def c-height (.-height canvas))
-  (def c-width (.-width canvas))
-  (request-animation-frame! render-frame!))
+  (swap! game-state (fn [state-v] (-> state-v (assoc :width (.-width canvas) :height (.-height canvas)))))
+  (request-animation-frame! render-frame!)
+  )
 
 (defn main! []
   (enable-console-print!)
@@ -208,4 +207,5 @@
 (main!)
 
 (comment
+  (deref game-state)
   (println "foo"))

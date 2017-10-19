@@ -1,12 +1,11 @@
 (ns common.game
   #?(:clj
-     (:require sc.api))
-  #?(:clj
-     (:import (java.util Date))))
+     (:import (java.util Date)))
+  (:require [clojure.math.combinatorics :as combo]))
 
 (defn new-time []
   #?(:clj  (-> (Date.) (.getTime))
-       :cljs (-> (js/Date.) (.getTime))))
+     :cljs (-> (js/Date.) (.getTime))))
 
 (def pi #?(:cljs (-> js/Math .-PI)))
 
@@ -16,6 +15,10 @@
 
 (def shot-area-multiplier 0.002)
 
+(def area-transfer-rate 0.05)
+
+(def min-alive-radius 1)
+
 (defn compute-delta [last-time? time]
   (if last-time?
     (- time last-time?)
@@ -23,42 +26,6 @@
 
 (defn area [{:keys [r]}]
   (* pi r r))
-
-(defn compute-position [{delta :delta entity :entity}]
-  (let [x-delta (-> entity :vx (* (/ delta 10)))
-        y-delta (-> entity :vy (* (/ delta 10)))]
-    (-> entity
-        (update :x + x-delta)
-        (update :y + y-delta))))
-
-(defn compute-game-state [{:keys [delta game-state] :as comp-ctx}]
-  (map (fn [[entity-id entity]]
-         (compute-position {:delta delta :entity entity}))
-       game-state))
-
-(defn intersects [entity1 entity2]
-  false)
-
-(defn distance-from [{:keys [small big]}]
-  (let [x-distance-square (Math/pow (- (:x small) (:x big)) 2)
-        y-distance-square (Math/pow (- (:y small (:y big))) 2)]
-    (Math/sqrt (+ x-distance-square y-distance-square))))
-
-(defn overlap [{:keys [small big] :as entities}]
-  (-> (+ (:r small) (:r big))
-      (- (distance-from entities))
-      (min 0)))
-
-(defn transfer-mass [{:keys [small big] :as entities}]
-  (let [overlaption (overlap entities)
-        diff (/ overlaption 2)]
-    {:small (-> small (update :r - diff))
-     :big   (-> big (update :r + diff))}))
-
-(comment
-  (def entity {:x 10 :y 10 :r 5 :vx 1 :vy 1})
-  (def shoot-x 1)
-  (def shoot-y 0))
 
 (defn abs [n]
   #?(:cljs (.abs js/Math n)))
@@ -83,7 +50,6 @@
   (let [area-diff (-> entity area (* shot-area-multiplier))
         blob (-> (create-blob args) (add-area area-diff))
         next-entity (add-area entity (- area-diff))]
-    (println area-diff (area-to-radius area-diff))
     {:entity next-entity :blob blob}))
 
 (defn shoot [{:keys [angle entity gen-entity-id-fn]}]
@@ -96,16 +62,16 @@
     {:update-entity next-entity
      :add-shot-blob (assoc blob :id (gen-entity-id-fn))}))
 
-(defn in-bounds [{:keys [entity game-width game-height]}]
+(defn in-bounds [{:keys [entity width height] :as ctx}]
   (and (< (:r entity) (:x entity))
+       (< (:x entity) (- width (:r entity)))
        (< (:r entity) (:y entity))
-       (< (:x entity) (- game-width (:r entity)))
-       (< (:y entity) (- game-height (:r entity)))))
+       (< (:y entity) (- height (:r entity)))))
 
-(defn reposition-in-bounds [{:keys [entity game-width game-height]}]
+(defn reposition-in-bounds [{:keys [entity width height]}]
   (let [{:keys [x y r]} entity
-        max-width (- game-width r)
-        max-height (- game-height r)]
+        max-width (- width r)
+        max-height (- height r)]
     (cond
       (< x r)
       (-> entity
@@ -129,23 +95,73 @@
 
       :else entity)))
 
-(defn compute-entity-state [{:keys [delta entity game-width game-height] :as args}]
-  (let [computed-entity (compute-position args)]
-    (if (in-bounds (assoc args :entity computed-entity))
-      computed-entity
-      (reposition-in-bounds (assoc args :entity computed-entity)))))
-
-(defn find-small-and-big [entity1 entity2]
+(defn small-big [entity1 entity2]
   (if (< (:r entity1) (:r entity2))
     {:small entity1 :big entity2}
     {:small entity2 :big entity1}))
 
-(defn compute-collisions [game-state]
-  (for [[_ entity1] (:entities game-state)]
-    (for [[_ entity2] (:entities game-state)]
-      (if (and (not= entity1 entity2)
-               (intersects entity1 entity2))
-        (transfer-mass (find-small-and-big entity1 entity2))))))
+(defn distance-from [entity1 entity2]
+  (let [x-distance-square (-> (- (:x entity1) (:x entity2)) (Math/pow 2))
+        y-distance-square (-> (- (:y entity1) (:y entity2)) (Math/pow 2))]
+    (Math/sqrt (+ x-distance-square y-distance-square))))
 
-(comment
-  (deref game-state))
+(defn overlap [entity1 entity2]
+  (let [over (-> (+ (:r entity1) (:r entity2))
+                 (- (distance-from entity1 entity2)))]
+    (if (pos? over) over 0)))
+
+(defn transfer-areas [entity1 entity2]
+  (let [overlap-value (overlap entity1 entity2)
+        {:keys [small big] :as sb} (small-big entity1 entity2)
+        diff (* overlap-value area-transfer-rate)
+        result {:small (-> small (update :r - diff))
+                :big   (-> big (update :r + diff))}]
+    result))
+
+(defn intersects [entity1 entity2]
+  (-> (distance-from entity1 entity2)
+      (< (+ (:r entity1) (:r entity2)))))
+
+(defn compute-entity-position [{delta :delta entity :entity}]
+  (let [x-delta (-> entity :vx (* (/ delta 10)))
+        y-delta (-> entity :vy (* (/ delta 10)))]
+    (-> entity
+        (update :x + x-delta)
+        (update :y + y-delta))))
+
+(defn move-entity [{:keys [entity delta game-state] :as ctx}]
+  (let [computed-entity (compute-entity-position ctx)]
+    (if (in-bounds (-> ctx (assoc :entity computed-entity :width (:width game-state) :height (:height game-state))))
+      computed-entity
+      (reposition-in-bounds (-> ctx (assoc :entity computed-entity :width (:width game-state) :height (:height game-state)))))))
+
+(defn move-entities [{:keys [delta game-state] :as ctx}]
+  (reduce-kv
+    (fn [m id entity]
+      (assoc m id (move-entity (-> ctx (assoc :entity entity)))))
+    {}
+    (:entities game-state)))
+
+(defn compute-collisions [game-state]
+  (let [entities-atom (atom (:entities game-state))]
+    (doseq [[entity1 entity2] (combo/combinations (vals @entities-atom) 2)]
+      (when (intersects entity1 entity2)
+        (let [{:keys [small big] :as sb} (transfer-areas entity1 entity2)]
+          (if (-> (:r small) (< min-alive-radius))
+            (-> entities-atom
+                (swap! (fn [entities-value]
+                         (-> entities-value
+                             (assoc (:id big) big)
+                             (dissoc (:id small))))))
+            (-> entities-atom
+                (swap! assoc
+                       (:id small) small
+                       (:id big) big))))))
+
+    (assoc game-state :entities @entities-atom)))
+
+(defn compute-game-state [{:keys [delta game-state] :as ctx}]
+  (let [next-entities (move-entities ctx)]
+    (-> game-state
+        (assoc :entities next-entities)
+        (compute-collisions))))
