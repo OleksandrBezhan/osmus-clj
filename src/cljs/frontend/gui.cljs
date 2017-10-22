@@ -21,8 +21,9 @@
 (def render-state (atom {:last-render-time nil
                          :last-frame-time  nil}))
 
+(def entity-id 1)
 
-(def is-rendering-debug true)
+(def is-rendering-debug false)
 (def is-frame-throttling false)
 (def frame-throttling-threshold 10000)
 
@@ -204,7 +205,7 @@
   (enable-console-print!)
   (start!)
   (input/init! {:shoot-fn      shoot!
-                :get-entity-fn #(-> @game-state :entities vals first)})
+                :get-entity-fn #(-> @game-state :entities (get entity-id))})
   ;(let [{:keys [start]} (ws/init!)] (start))
   )
 
@@ -212,4 +213,5 @@
 
 (comment
   (deref game-state)
+  (gen-entity-id!)
   (println "foo"))
