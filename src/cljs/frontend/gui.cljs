@@ -126,6 +126,9 @@
     (add-entity! {:id id} game-state)
     id))
 
+(defn update-entity! [entity game-state]
+  (swap! game-state update :entities assoc (:id entity) entity))
+
 (defn set-game-state! [next-game-state game-state]
   (reset! game-state next-game-state))
 
@@ -158,7 +161,8 @@
         (when set-last-render-time (set-last-render-time! set-last-render-time))
         (when set-last-frame-time (set-last-frame-time! set-last-frame-time))
         (when add-shot-blob (add-shot-blob! add-shot-blob game-state))
-        (when set-game-state (set-game-state! set-game-state game-state))))
+        (when set-game-state (set-game-state! set-game-state game-state))
+        (when update-entity (update-entity! update-entity game-state))))
 
     (doseq [mut mutation]
       (mutator! mut))))

@@ -1,13 +1,16 @@
 (ns common.game
+  (:require [clojure.math.combinatorics :as combo])
   #?(:clj
-     (:import (java.util Date)))
-  (:require [clojure.math.combinatorics :as combo]))
+     (:require [sc.api :as sc]))
+  #?(:clj
+     (:import (java.util Date))))
 
 (defn new-time []
   #?(:clj  (-> (Date.) (.getTime))
      :cljs (-> (js/Date.) (.getTime))))
 
-(def pi #?(:cljs (-> js/Math .-PI)))
+(def pi #?(:cljs (-> js/Math .-PI)
+           :clj (Math/PI)))
 
 (def shot-blob-speed-multiplier 2)
 
@@ -39,28 +42,35 @@
         r-add (* sign r)]
     (update entity :r + r-add)))
 
-(defn create-blob [{:keys [shoot-x shoot-y entity]}]
+(defn create-blob [{:keys [shoot-x shoot-y entity gen-entity-id-fn]}]
   {:x  (-> entity :x (+ (-> entity :r (* shoot-x))))
    :y  (-> entity :y (+ (-> entity :r (* shoot-y))))
    :vx (-> entity :vx (+ (* shoot-x shot-blob-speed-multiplier)))
    :vy (-> entity :vy (+ (* shoot-y shot-blob-speed-multiplier)))
-   :id 3})
+   :r 0
+   :id (gen-entity-id-fn)})
 
-(defn slice-shot-blob [{:keys [shoot-x shoot-y entity] :as args}]
+(defn slice-shot-blob [{:keys [shoot-x shoot-y entity gen-entity-id-fn] :as args}]
   (let [area-diff (-> entity area (* shot-area-multiplier))
         blob (-> (create-blob args) (add-area area-diff))
         next-entity (add-area entity (- area-diff))]
     {:entity next-entity :blob blob}))
 
-(defn shoot [{:keys [angle entity gen-entity-id-fn]}]
+(defn shoot [{:keys [angle entity gen-entity-id-fn] :as args}]
   (let [shoot-x (Math/cos angle)
         shoot-y (Math/sin angle)
-        {:keys [blob entity]} (slice-shot-blob {:shoot-x shoot-x :shoot-y shoot-y :entity entity})
+        {:keys [blob entity]} (slice-shot-blob {:shoot-x shoot-x :shoot-y shoot-y :entity entity :gen-entity-id-fn gen-entity-id-fn})
         next-entity (-> entity
                         (update :vx - (* shoot-x shot-player-speed-multiplier))
                         (update :vy - (* shoot-y shot-player-speed-multiplier)))]
     {:update-entity next-entity
-     :add-shot-blob (assoc blob :id (gen-entity-id-fn))}))
+     :add-shot-blob blob}))
+
+(comment
+  (sc.api/defsc 21)
+  (shoot {:angle            -0.0046050780950956,
+          :entity           {:id 1, :x 155.69990326972183, :y 200, :vx 0, :vy 0, :r 155.69990326972183},
+          :gen-entity-id-fn (constantly 3)}))
 
 (defn in-bounds [{:keys [entity width height] :as ctx}]
   (and (< (:r entity) (:x entity))
