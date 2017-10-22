@@ -22,6 +22,8 @@
 
 (def min-alive-radius 1)
 
+(def speed-loss-multiplier 0.9995)
+
 (defn compute-delta [last-time? time]
   (if last-time?
     (- time last-time?)
@@ -136,15 +138,17 @@
   (-> (distance-from entity1 entity2)
       (< (+ (:r entity1) (:r entity2)))))
 
-(defn compute-entity-position [{delta :delta entity :entity}]
+(defn compute-entity-position-and-speed [{:keys [delta entity]}]
   (let [x-delta (-> entity :vx (* (/ delta 10)))
         y-delta (-> entity :vy (* (/ delta 10)))]
     (-> entity
         (update :x + x-delta)
-        (update :y + y-delta))))
+        (update :y + y-delta)
+        (update :vx * speed-loss-multiplier)
+        (update :vy * speed-loss-multiplier))))
 
 (defn move-entity [{:keys [entity delta game-state] :as ctx}]
-  (let [computed-entity (compute-entity-position ctx)]
+  (let [computed-entity (compute-entity-position-and-speed ctx)]
     (if (in-bounds (-> ctx (assoc :entity computed-entity :width (:width game-state) :height (:height game-state))))
       computed-entity
       (reposition-in-bounds (-> ctx (assoc :entity computed-entity :width (:width game-state) :height (:height game-state)))))))
