@@ -10,7 +10,7 @@
      :cljs (-> (js/Date.) (.getTime))))
 
 (def pi #?(:cljs (-> js/Math .-PI)
-           :clj (Math/PI)))
+           :clj  (Math/PI)))
 
 (def shot-blob-speed-multiplier 2)
 
@@ -47,7 +47,7 @@
    :y  (-> entity :y (+ (-> entity :r (* shoot-y))))
    :vx (-> entity :vx (+ (* shoot-x shot-blob-speed-multiplier)))
    :vy (-> entity :vy (+ (* shoot-y shot-blob-speed-multiplier)))
-   :r 0
+   :r  0
    :id (gen-entity-id-fn)})
 
 (defn slice-shot-blob [{:keys [shoot-x shoot-y entity gen-entity-id-fn] :as args}]
@@ -123,9 +123,13 @@
 (defn transfer-areas [entity1 entity2]
   (let [overlap-value (overlap entity1 entity2)
         {:keys [small big] :as sb} (small-big entity1 entity2)
-        diff (* overlap-value area-transfer-rate)
-        result {:small (-> small (update :r - diff))
-                :big   (-> big (update :r + diff))}]
+        diff (-> (* overlap-value area-transfer-rate) (min (:r small)))
+        small (-> small (update :r - diff))
+        big (-> big (update :r + diff))
+        result (if (-> (:r small) (< min-alive-radius))
+                 {:small (-> small (assoc :r 0))
+                  :big   (-> big (update :r + (:r small)))}
+                 {:small small :big big})]
     result))
 
 (defn intersects [entity1 entity2]
