@@ -35,6 +35,11 @@
 (defn abs [n]
   #?(:cljs (.abs js/Math n)))
 
+(defn calculate-click-angle [{:keys [click-position entity-position]}]
+  (let [angle (Math/atan2 (- (:y click-position) (:y entity-position))
+                          (- (:x click-position) (:x entity-position)))]
+    angle))
+
 (defn area-to-radius [area]
   (-> area (Math/abs) (/ pi) (Math/sqrt)))
 
@@ -80,7 +85,7 @@
        (< (:r entity) (:y entity))
        (< (:y entity) (- height (:r entity)))))
 
-(defn reposition-in-bounds [{:keys [entity width height]}]
+(defn reposition-in-bounds [{:keys [entity width height] :as args}]
   (let [{:keys [x y r]} entity
         max-width (- width r)
         max-height (- height r)]
