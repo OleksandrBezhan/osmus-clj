@@ -193,25 +193,28 @@
       (mutator!)
       ((fn [_] (request-animation-frame! render-frame!)))))
 
-(defn start! []
+(defn start! [canvas c-context]
   (js/console.log "Starting the app")
-  (def canvas (.getElementById js/document "canvas"))
-  (def c-context (.getContext canvas "2d"))
+  (def canvas canvas)
+  (def c-context c-context)
   (swap! game-state (fn [state-v] (-> state-v (assoc :width (.-width canvas) :height (.-height canvas)))))
   (request-animation-frame! render-frame!)
   )
 
 (defn main! []
-  (enable-console-print!)
-  (start!)
-  (input/init! {:shoot-fn      shoot!
-                :get-entity-fn #(-> @game-state :entities (get entity-id))})
+  (let [canvas (.getElementById js/document "canvas")
+        c-context (.getContext canvas "2d")]
+
+    (enable-console-print!)
+    (start! canvas c-context)
+    (input/init! {:shoot-fn      shoot!
+                  :get-entity-fn #(-> @game-state :entities (get entity-id))}))
   ;(let [{:keys [start]} (ws/init!)] (start))
   )
 
-(main!)
 
 (comment
+  (main!)
   (deref game-state)
   (gen-entity-id!)
   (println "foo"))

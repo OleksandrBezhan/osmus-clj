@@ -1,0 +1,6 @@
+{:require [common.game
+           common.hello
+           frontend.gui
+           frontend.devcards]
+ :init-fns [frontend.devcards/main]
+ :compiler-options {:asset-path "js/devcards.out" :devcards true}}

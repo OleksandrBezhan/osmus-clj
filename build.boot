@@ -6,6 +6,7 @@
   :dependencies '[[org.clojure/clojure    "1.8.0"]
                   [org.clojure/clojurescript "1.9.946" :scope "test"]
 
+                  [devcards "0.2.4"]
                   [vvvvalvalval/scope-capture "0.1.0"]
                   [onetom/boot-lein-generate "0.1.3" :scope "test"]
                   [adzerk/boot-cljs       "2.1.3" :scope "test"]
@@ -81,13 +82,13 @@
   (comp
     (watch)
     (reload :open-file "vim --servername saapas --remote-silent +norm%sG%s| %s"
-            :ids #{"js/main"})
+            :ids #{"js/main" "js/devcards"})
     (if use-sass
       (sass)
       (less))
     ; This starts a repl server with piggieback middleware
-    (cljs-repl :ids #{"js/main"})
-    (cljs :ids #{"js/main"})
+    (cljs-repl :ids #{"js/main" "js/devcards"})
+    (cljs :ids #{"js/main" "js/devcards"} :compiler-options {:devcards true})
     ;; Remove cljs output from classpath but keep with in fileset with output role
     (sift :to-asset #{#"^js/.*"})
     ;; Write the resources to filesystem for dev server

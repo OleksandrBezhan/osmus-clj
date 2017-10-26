@@ -20,7 +20,7 @@
   (html
     (html5
       [:head
-       [:title "Saapas tests"]]
+       [:title "Devcards tests"]]
       [:body
-       [:div.container [:div#app.app-wrapper]]
-       (include-js "js/test.js")])))
+       [:h1 "Devcards"]
+       (include-js "js/devcards.js")])))
