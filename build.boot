@@ -39,7 +39,7 @@
                   [org.clojure/math.combinatorics "0.1.4"]
 
                   ; Frontend
-                  [reagent "0.8.0-alpha1" :scope "test"]
+                  [reagent "0.8.0-alpha2"]
                   [binaryage/devtools "0.9.4" :scope "test"]
                   [cljsjs/babel-standalone "6.18.1-3" :scope "test"]
 

@@ -17,3 +17,6 @@ out/
 project.clj
 
 dev-output
+
+node_modules
+package.json
