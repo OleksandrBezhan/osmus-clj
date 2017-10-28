@@ -20,21 +20,43 @@
        (fn []
          [:div.with-canvas
           [:canvas (if-let [node @dom-node]
-                     {:width 300
-                      :height 300})]])})))
+                     {:width  500
+                      :height 400})]])})))
 
 (defn canvas-component [draw-canvas-fn]
   [div-with-canvas draw-canvas-fn])
 
-(defn draw-simple-entity [canvas]
+(defn draw-entity-with-enemies [canvas]
   (let [ctx (.getContext canvas "2d")
         game-state (gui/mk-initial-game-state canvas)
+        enemies {2 {:id 2
+                    :x  180
+                    :y  120
+                    :vx 0
+                    :vy 0
+                    :r  30
+                    }
+                 3 {:id 2
+                    :x  200
+                    :y  250
+                    :vx 0
+                    :vy 0
+                    :r  49
+                    }
+                 4 {:id 4
+                    :x  350
+                    :y  230
+                    :vx 0
+                    :vy 0
+                    :r  100}}
         render-state (gui/mk-initial-render-state canvas ctx)]
+    (doseq [[id enemy] enemies]
+      (swap! game-state assoc-in [:entities id] enemy))
     (gui/start! game-state render-state)))
 
-(defcard-rg simple-entity-card
-            "Simple entity"
-            (canvas-component draw-simple-entity))
+(defcard-rg simple-entity-with-enemies-card
+            "Entity with enemies"
+            (canvas-component draw-entity-with-enemies))
 
 (defn draw-entity-shoots [canvas]
   (let [ctx (.getContext canvas "2d")

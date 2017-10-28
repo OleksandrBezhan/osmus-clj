@@ -26,27 +26,41 @@
                                  :x    x
                                  :y    (+ y (* i 20))}}) texts)]))
 
-(defn render-entity [entity is-rendering-debug]
-  [{:fill-style "green"}
-   {:begin-path true}
-   {:arc {
-          :x                (:x entity)
-          :y                (:y entity)
-          :r                (:r entity)
-          :start-angle      0
-          :end-angle        (* 2 game/pi)
-          :is-anticlockwise true}}
-   {:close-path true}
-   {:fill true}
-   (if is-rendering-debug
-     (render-entity-debug {:entity entity
-                           :x      (- (:x entity) (/ (:r entity) 2))
-                           :y      (+ (:y entity) (:r entity) 20)}))])
+(def my-entity-color "#1E90FF")
+(def small-enemy-color "#008000")
+(def medium-enemy-color "#FFA500")
+(def big-enemy-color "#DC143C")
 
-(defn render-entities [{:keys [delta width height entities is-rendering-debug]}]
+(defn enemy-color [enemy-r my-r]
+  (cond
+    (-> enemy-r (< (* 0.8 my-r))) small-enemy-color
+    (-> enemy-r (< my-r)) medium-enemy-color
+    (-> enemy-r (= my-r)) big-enemy-color
+    (-> enemy-r (> my-r)) big-enemy-color))
+
+(defn render-entity [entity is-rendering-debug my-entity]
+  (let [is-my-entity (-> (:id entity) (= (:id my-entity)))]
+    [{:fill-style (if is-my-entity my-entity-color (enemy-color (:r entity) (:r my-entity)))}
+     {:begin-path true}
+     {:arc {
+            :x                (:x entity)
+            :y                (:y entity)
+            :r                (:r entity)
+            :start-angle      0
+            :end-angle        (* 2 game/pi)
+            :is-anticlockwise true}}
+     {:close-path true}
+     {:fill true}
+     (if is-rendering-debug
+       (render-entity-debug {:entity entity
+                             :x      (- (:x entity) (/ (:r entity) 2))
+                             :y      (+ (:y entity) (:r entity) 20)}))]))
+
+(defn render-entities [{:keys [delta width height entities is-rendering-debug my-entity]}]
+  (let [my-entity ()])
   [{:clear-rect {:x1 0 :y1 0 :x2 width :y2 height}}
    (for [entity entities]
-     (render-entity entity is-rendering-debug))])
+     (render-entity entity is-rendering-debug my-entity))])
 
 (defn render-fps [delta]
   (when (> delta 0)
@@ -164,7 +178,8 @@
                               :height             (:height next-game-state)
                               :entities           (vals (:entities next-game-state))
                               :delta              delta
-                              :is-rendering-debug is-rendering-debug})
+                              :is-rendering-debug is-rendering-debug
+                              :my-entity          (-> next-game-state :entities (get (:entity-id next-game-state)))})
             (conj (when is-rendering-debug (render-fps delta)))
             (conj {:set-last-render-time time
                    :set-last-frame-time  time
@@ -188,7 +203,7 @@
 
 (defn mk-initial-game-state [canvas]
   (atom {:entities  {1 {:id 1
-                        :x  100
+                        :x  80
                         :y  150
                         :vx 0
                         :vy 0
@@ -200,7 +215,7 @@
 (defn mk-initial-render-state [canvas c-context]
   (atom {:last-render-time           nil
          :last-frame-time            nil
-         :is-rendering-debug         true
+         :is-rendering-debug         false
          :is-frame-throttling        false
          :frame-throttling-threshold 10000
          :canvas                     canvas
@@ -220,9 +235,9 @@
 
 
 (comment
-  (update-entity! {:id 1, :x 150.00000000000009, :y 200, :vx 0, :vy 0, :r 143.2917960675007}
-                  x-game-state)
-  (add-entity! {:x 428.92762424715266, :y 275.66520372745936, :vx 2.346329953009422, :vy -0.42281901682986395, :r 6.408203932499373, :id 2}
-               x-game-state)
-  (add-shot-blob!
-                  x-game-state))
+  (let [my-r 40
+        entity-r 50]
+    (if))
+  (reset! x-game-state {})
+
+  )
