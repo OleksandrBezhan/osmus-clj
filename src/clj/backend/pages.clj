@@ -1,4 +1,4 @@
-(ns backend.index
+(ns backend.pages
   (:require
     [hiccup.core :refer [html]]
     [hiccup.page :refer [html5 include-js include-css]]))
@@ -16,11 +16,12 @@
        [:div.container [:canvas#canvas {:width "640" :height "480"}]]
        (include-js "js/main.js")])))
 
-(def test-page
+(def devcards-page
   (html
     (html5
       [:head
-       [:title "Devcards tests"]]
+       [:title "Devcards"]
+       (include-css "css/main.css")]
       [:body
        [:h1 "Devcards"]
        (include-js "js/devcards.js")])))

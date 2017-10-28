@@ -5,28 +5,6 @@
             [foo.bar]
             [cljs.pprint :as pprint]))
 
-(defonce game-state (atom {:entities {1 {:id 1
-                                         :x  150
-                                         :y  200
-                                         :vx 0
-                                         :vy 0
-                                         :r  100}
-                                      2 {:id 2
-                                         :x  200
-                                         :y  290
-                                         :vx 0
-                                         :vy 0
-                                         :r  50}}}))
-
-(def render-state (atom {:last-render-time nil
-                         :last-frame-time  nil}))
-
-(def entity-id 1)
-
-(def is-rendering-debug false)
-(def is-frame-throttling false)
-(def frame-throttling-threshold 10000)
-
 (defn format-number
   "Format a float number"
   [n]
@@ -48,7 +26,7 @@
                                  :x    x
                                  :y    (+ y (* i 20))}}) texts)]))
 
-(defn render-entity [entity]
+(defn render-entity [entity is-rendering-debug]
   [{:fill-style "green"}
    {:begin-path true}
    {:arc {
@@ -65,10 +43,10 @@
                            :x      (- (:x entity) (/ (:r entity) 2))
                            :y      (+ (:y entity) (:r entity) 20)}))])
 
-(defn render-entities [{:keys [delta width height entities]}]
+(defn render-entities [{:keys [delta width height entities is-rendering-debug]}]
   [{:clear-rect {:x1 0 :y1 0 :x2 width :y2 height}}
    (for [entity entities]
-     (render-entity entity))])
+     (render-entity entity is-rendering-debug))])
 
 (defn render-fps [delta]
   (when (> delta 0)
@@ -78,10 +56,6 @@
        {:fill-text {:text (str (int fps) " fps")
                     :x    10
                     :y    26}}])))
-
-;; side effects
-(declare canvas)
-(declare c-context)
 
 (defn request-animation-frame! [handler]
   (.requestAnimationFrame js/window handler))
@@ -107,10 +81,10 @@
 (defn fill! [c-context]
   (.fill c-context))
 
-(defn set-last-render-time! [time]
+(defn set-last-render-time! [time render-state]
   (swap! render-state assoc :last-render-time time))
 
-(defn set-last-frame-time! [time]
+(defn set-last-frame-time! [time render-state]
   (swap! render-state assoc :last-frame-time time))
 
 (defn font! [c-context font]
@@ -122,7 +96,7 @@
 (defn add-shot-blob! [blob game-state]
   (add-entity! blob game-state))
 
-(defn gen-entity-id! []
+(defn gen-entity-id! [game-state]
   (let [id (->> @game-state :entities keys (apply max) (+ 1))]
     (add-entity! {:id id} game-state)
     id))
@@ -134,7 +108,7 @@
   (reset! game-state next-game-state))
 
 (defn mutator!
-  [mutation]
+  [mutation game-state render-state]
   (if (map? mutation)
     (do
       (let [{:keys [clear-rect
@@ -150,7 +124,8 @@
                     update-entity
                     update-fps
                     add-shot-blob
-                    set-game-state]} mutation]
+                    set-game-state]} mutation
+            c-context (:c-context @render-state)]
         (when clear-rect (clear-rect! c-context clear-rect))
         (when font (font! c-context font))
         (when fill-text (fill-text! c-context fill-text))
@@ -159,28 +134,37 @@
         (when close-path (close-path! c-context))
         (when arc (arc! c-context arc))
         (when fill (fill! c-context))
-        (when set-last-render-time (set-last-render-time! set-last-render-time))
-        (when set-last-frame-time (set-last-frame-time! set-last-frame-time))
+        (when set-last-render-time (set-last-render-time! set-last-render-time render-state))
+        (when set-last-frame-time (set-last-frame-time! set-last-frame-time render-state))
         (when add-shot-blob (add-shot-blob! add-shot-blob game-state))
         (when set-game-state (set-game-state! set-game-state game-state))
         (when update-entity (update-entity! update-entity game-state))))
 
     (doseq [mut mutation]
-      (mutator! mut))))
+      (mutator! mut game-state render-state))))
 
-(defn shoot! [args]
-  (-> (game/shoot (assoc args :gen-entity-id-fn gen-entity-id!))
-      (mutator!)))
+(defn shoot! [shoot-position game-state render-state]
+  (println shoot-position)
+  (let [entity (-> @game-state :entities (get (:entity-id @game-state)))]
+    (-> (game/shoot {:shoot-position   shoot-position
+                     :gen-entity-id-fn (fn [] (gen-entity-id! game-state))
+                     :entity           entity})
+        (mutator! game-state render-state))))
 
-(defn render-frame [time render-state]
-  (let [frame-throttling-delta (- time (:last-render-time @render-state))]
+(defn render-frame [time game-state render-state]
+  (let [is-frame-throttling (:is-frame-throttling @render-state)
+        frame-throttling-threshold (:frame-throttling-threshold @render-state)
+        is-rendering-debug (:is-rendering-debug @render-state)
+        frame-throttling-delta (- time (:last-render-time @render-state))]
+
     (if (or (not is-frame-throttling) (and is-frame-throttling (> frame-throttling-delta frame-throttling-threshold)))
       (let [delta (game/compute-delta (:last-frame-time @render-state) time)
             next-game-state (game/compute-game-state {:delta delta :game-state @game-state})]
-        (-> (render-entities {:width    (:width next-game-state)
-                              :height   (:height next-game-state)
-                              :entities (vals (:entities next-game-state))
-                              :delta    delta})
+        (-> (render-entities {:width              (:width next-game-state)
+                              :height             (:height next-game-state)
+                              :entities           (vals (:entities next-game-state))
+                              :delta              delta
+                              :is-rendering-debug is-rendering-debug})
             (conj (when is-rendering-debug (render-fps delta)))
             (conj {:set-last-render-time time
                    :set-last-frame-time  time
@@ -188,33 +172,57 @@
 
       {:set-last-frame-time time})))
 
-(defn render-frame! [time]
-  (-> (render-frame time render-state)
-      (mutator!)
-      ((fn [_] (request-animation-frame! render-frame!)))))
+(defn render-frame-loop! [game-state render-state]
+  (letfn [(render-frame! [time]
+            (-> time
+                (render-frame game-state render-state)
+                (mutator! game-state render-state)
+                ((fn [_] (request-animation-frame! render-frame!)))))]
 
-(defn start! [canvas c-context]
-  (js/console.log "Starting the app")
-  (def canvas canvas)
-  (def c-context c-context)
-  (swap! game-state (fn [state-v] (-> state-v (assoc :width (.-width canvas) :height (.-height canvas)))))
-  (request-animation-frame! render-frame!)
-  )
+    (request-animation-frame! render-frame!)))
+
+(defn start! [game-state render-state]
+  (render-frame-loop! game-state render-state)
+  (input/init! {:canvas   (:canvas @render-state)
+                :shoot-fn (fn [shoot-position] (shoot! shoot-position game-state render-state))}))
+
+(defn mk-initial-game-state [canvas]
+  (atom {:entities  {1 {:id 1
+                        :x  100
+                        :y  150
+                        :vx 0
+                        :vy 0
+                        :r  50}}
+         :width     (.-width canvas)
+         :height    (.-height canvas)
+         :entity-id 1}))
+
+(defn mk-initial-render-state [canvas c-context]
+  (atom {:last-render-time           nil
+         :last-frame-time            nil
+         :is-rendering-debug         true
+         :is-frame-throttling        false
+         :frame-throttling-threshold 10000
+         :canvas                     canvas
+         :c-context                  c-context}))
 
 (defn main! []
   (let [canvas (.getElementById js/document "canvas")
-        c-context (.getContext canvas "2d")]
+        c-context (.getContext canvas "2d")
+        game-state (mk-initial-game-state canvas)
+        render-state (mk-initial-render-state canvas c-context)]
+
+    (def x-game-state game-state)
+    (def x-render-state render-state)
 
     (enable-console-print!)
-    (start! canvas c-context)
-    (input/init! {:shoot-fn      shoot!
-                  :get-entity-fn #(-> @game-state :entities (get entity-id))}))
-  ;(let [{:keys [start]} (ws/init!)] (start))
-  )
+    (start! game-state render-state)))
 
 
 (comment
-  (main!)
-  (deref game-state)
-  (gen-entity-id!)
-  (println "foo"))
+  (update-entity! {:id 1, :x 150.00000000000009, :y 200, :vx 0, :vy 0, :r 143.2917960675007}
+                  x-game-state)
+  (add-entity! {:x 428.92762424715266, :y 275.66520372745936, :vx 2.346329953009422, :vy -0.42281901682986395, :r 6.408203932499373, :id 2}
+               x-game-state)
+  (add-shot-blob!
+                  x-game-state))

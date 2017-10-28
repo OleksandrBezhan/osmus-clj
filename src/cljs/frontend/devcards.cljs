@@ -7,24 +7,15 @@
     [devcards.core :refer [defcard deftest defcard-rg defcard-doc]]))
 
 
-(defn draw-canvas [canvas]
-  (let [ctx (.getContext canvas "2d")]
-    (gui/start! canvas ctx)))
-
-(defn div-with-canvas []
+(defn div-with-canvas [draw-canvas-fn]
   (let [dom-node (reagent/atom nil)]
     (reagent/create-class
       {:component-did-update
        (fn [this]
-         (println "component did update")
-         (draw-canvas (.-firstChild @dom-node)))
+         (draw-canvas-fn (.-firstChild @dom-node)))
        :component-did-mount
        (fn [this]
-         (println "component did mount")
          (reset! dom-node (reagent/dom-node this)))
-       :component-will-unmount
-       (fn [this]
-         (println "component will unmount"))
        :reagent-render
        (fn []
          [:div.with-canvas
@@ -32,12 +23,42 @@
                      {:width 300
                       :height 300})]])})))
 
-(defn canvas-component []
-  [div-with-canvas])
+(defn canvas-component [draw-canvas-fn]
+  [div-with-canvas draw-canvas-fn])
 
-(defcard-rg canvas-component-card
-            "A reagent component with a canvas"
-            canvas-component)
+(defn draw-simple-entity [canvas]
+  (let [ctx (.getContext canvas "2d")
+        game-state (gui/mk-initial-game-state canvas)
+        render-state (gui/mk-initial-render-state canvas ctx)]
+    (gui/start! game-state render-state)))
+
+(defcard-rg simple-entity-card
+            "Simple entity"
+            (canvas-component draw-simple-entity))
+
+(defn draw-entity-shoots [canvas]
+  (let [ctx (.getContext canvas "2d")
+        game-state (gui/mk-initial-game-state canvas)
+        render-state (gui/mk-initial-render-state canvas ctx)]
+    (gui/shoot! {:x 250 :y 150} game-state render-state)
+    (-> (gui/render-frame 100 game-state render-state)
+        (gui/mutator! game-state render-state))))
+
+(defcard-rg entity-shoots-card
+            "Entity shoots a blob"
+            (canvas-component draw-entity-shoots))
+
+(defn draw-entity-shoots-far-away [canvas]
+  (let [ctx (.getContext canvas "2d")
+        game-state (gui/mk-initial-game-state canvas)
+        render-state (gui/mk-initial-render-state canvas ctx)]
+    (gui/shoot! {:x 280 :y 150} game-state render-state)
+    (-> (gui/render-frame 100 game-state render-state)
+        (gui/mutator! game-state render-state))))
+
+(defcard-rg entity-shoots-far-away-card
+            "Entity shoots a blob far away"
+            (canvas-component draw-entity-shoots-far-away))
 
 (defn ^:export main []
   (enable-console-print!)

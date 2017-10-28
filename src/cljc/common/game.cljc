@@ -63,8 +63,9 @@
         next-entity (add-area entity (- area-diff))]
     {:entity next-entity :blob blob}))
 
-(defn shoot [{:keys [angle entity gen-entity-id-fn] :as args}]
-  (let [shoot-x (Math/cos angle)
+(defn shoot [{:keys [shoot-position entity gen-entity-id-fn]}]
+  (let [angle (calculate-click-angle {:click-position shoot-position :entity-position entity})
+        shoot-x (Math/cos angle)
         shoot-y (Math/sin angle)
         {:keys [blob entity]} (slice-shot-blob {:shoot-x shoot-x :shoot-y shoot-y :entity entity :gen-entity-id-fn gen-entity-id-fn})
         next-entity (-> entity

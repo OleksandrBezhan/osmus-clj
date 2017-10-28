@@ -12,7 +12,7 @@
             [org.httpkit.server :refer [run-server]]
             [taoensso.sente :as sente]
             [taoensso.sente.server-adapters.http-kit :refer (get-sch-adapter)]
-            [backend.index :refer [index-page test-page]]))
+            [backend.pages :refer [index-page devcards-page]]))
 
 (def game-state (atom {1 {
                           :type :blob
@@ -59,8 +59,8 @@
            (GET "/" []
              ; Use (resource-response "index.html") to serve index.html from classpath
              (-> (ok index-page) (content-type "text/html")))
-           (GET "/test" []
-             (-> (ok test-page) (content-type "text/html")))
+           (GET "/devcards" []
+             (-> (ok devcards-page) (content-type "text/html")))
 
            (GET "/chsk" req (ring-ajax-get-or-ws-handshake req))
            (POST "/chsk" req (ring-ajax-post req))

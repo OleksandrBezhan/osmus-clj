@@ -81,20 +81,41 @@
    t test-cljs       bool "Compile and run cljs tests"]
   (comp
     (watch)
-    (reload :open-file "vim --servername saapas --remote-silent +norm%sG%s| %s"
-            :ids #{"js/main" "js/devcards"})
+    (reload :ids #{"js/main"})
     (if use-sass
       (sass)
       (less))
     ; This starts a repl server with piggieback middleware
-    (cljs-repl :ids #{"js/main" "js/devcards"})
-    (cljs :ids #{"js/main" "js/devcards"})
+    (cljs-repl :ids #{"js/main"})
+    (cljs :ids #{"js/main"})
     ;; Remove cljs output from classpath but keep with in fileset with output role
     (sift :to-asset #{#"^js/.*"})
     ;; Write the resources to filesystem for dev server
     (target :dir #{"dev-output"})
     (start-app :port port)
     (if speak (boot.task.built-in/speak) identity)))
+
+(deftask devcards
+         "Start the dev env..."
+         [s speak           bool "Notify when build is done"
+          p port       PORT int  "Port for web server"
+          a use-sass        bool "Use Scss instead of less"
+          t test-cljs       bool "Compile and run cljs tests"]
+         (comp
+           (watch)
+           (reload :ids #{"js/devcards"})
+           (if use-sass
+             (sass)
+             (less))
+           ; This starts a repl server with piggieback middleware
+           (cljs-repl :ids #{"js/devcards"})
+           (cljs :ids #{"js/devcards"})
+           ;; Remove cljs output from classpath but keep with in fileset with output role
+           (sift :to-asset #{#"^js/.*"})
+           ;; Write the resources to filesystem for dev server
+           (target :dir #{"dev-output"})
+           (start-app :port port)
+           (if speak (boot.task.built-in/speak) identity)))
 
 (ns-unmap *ns* 'test)
 
