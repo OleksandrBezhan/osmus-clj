@@ -1,8 +1,11 @@
-@import "test";
 @import "bootstrap/scss/bootstrap.scss";
 
 $color: blue;
 
 body {
   font-family: monospace;
+}
+
+canvas {
+    border: 1px black solid;
 }

@@ -1,7 +1,7 @@
 (set-env!
   ; Test path can be included here as source-files are not included in JAR
   ; Just be careful to not AOT them
-  :source-paths #{"src/cljs" "src/less" "src/scss" "test/clj" "test/cljs"}
+  :source-paths #{"src/cljs" "src/scss" "test/clj" "test/cljs"}
   :resource-paths #{"src/clj" "src/cljc"}
   :dependencies '[[org.clojure/clojure    "1.8.0"]
                   [org.clojure/clojurescript "1.9.946" :scope "test"]
@@ -19,13 +19,11 @@
                   [adzerk/boot-reload     "0.5.2" :scope "test"]
                   [metosin/boot-alt-test  "0.3.2"      :scope "test"]
                   [metosin/boot-deps-size "0.1.0" :scope "test"]
-                  [deraen/boot-less       "0.6.2"      :scope "test"]
                   ;; For boot-less
                   [org.slf4j/slf4j-nop    "1.7.25"     :scope "test"]
                   [deraen/boot-sass       "0.3.1"      :scope "test"]
 
                   ; Backend
-                  [com.taoensso/sente "1.11.0"]
                   [http-kit "2.2.0"]
                   [org.clojure/tools.namespace "0.3.0-alpha4"]
                   [reloaded.repl "0.2.3"]
@@ -55,7 +53,6 @@
   '[adzerk.boot-reload    :refer [reload]]
   '[metosin.boot-alt-test  :refer [alt-test]]
   '[metosin.boot-deps-size :refer [deps-size]]
-  '[deraen.boot-less      :refer [less]]
   '[deraen.boot-sass      :refer [sass]]
   '[crisptrutski.boot-cljs-test :refer [test-cljs]]
   '[backend.boot          :refer [start-app]]
@@ -70,21 +67,17 @@
        :license {"The MIT License (MIT)" "http://opensource.org/licenses/mit-license.php"}}
   aot {:namespace #{'backend.main}}
   jar {:main 'backend.main}
-  less {:source-map true}
   sass {:source-map true})
 
 (deftask dev
   "Start the dev env..."
   [s speak           bool "Notify when build is done"
    p port       PORT int  "Port for web server"
-   a use-sass        bool "Use Scss instead of less"
    t test-cljs       bool "Compile and run cljs tests"]
   (comp
     (watch)
     (reload :ids #{"js/main"})
-    (if use-sass
-      (sass)
-      (less))
+    (sass)
     ; This starts a repl server with piggieback middleware
     (cljs-repl :ids #{"js/main"})
     (cljs :ids #{"js/main"})
@@ -99,14 +92,11 @@
          "Start the dev env..."
          [s speak           bool "Notify when build is done"
           p port       PORT int  "Port for web server"
-          a use-sass        bool "Use Scss instead of less"
           t test-cljs       bool "Compile and run cljs tests"]
          (comp
            (watch)
            (reload :ids #{"js/devcards"})
-           (if use-sass
-             (sass)
-             (less))
+           (sass)
            ; This starts a repl server with piggieback middleware
            (cljs-repl :ids #{"js/devcards"})
            (cljs :ids #{"js/devcards"})
@@ -135,7 +125,6 @@
   "Build the package"
   []
   (comp
-    (less :compression true)
     (cljs :optimizations :advanced
           :compiler-options {:preloads nil})
     (aot)

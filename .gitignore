@@ -13,10 +13,10 @@
 
 target/
 out/
+dev-output/
 
 project.clj
 
-dev-output
-
 node_modules
 package.json
+package-lock.json

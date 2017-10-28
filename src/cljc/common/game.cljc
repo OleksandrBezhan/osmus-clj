@@ -1,9 +1,15 @@
 (ns common.game
   (:require [clojure.math.combinatorics :as combo])
   #?(:clj
-     (:require [sc.api :as sc]))
-  #?(:clj
      (:import (java.util Date))))
+
+;; constants
+(def shot-blob-speed-multiplier 2)
+(def shot-player-speed-multiplier 0.7)
+(def shot-area-multiplier 0.002)
+(def area-transfer-rate 0.05)
+(def min-alive-radius 1)
+(def speed-loss-multiplier 0.9995)
 
 (defn new-time []
   #?(:clj  (-> (Date.) (.getTime))
@@ -11,18 +17,6 @@
 
 (def pi #?(:cljs (-> js/Math .-PI)
            :clj  (Math/PI)))
-
-(def shot-blob-speed-multiplier 2)
-
-(def shot-player-speed-multiplier 0.7)
-
-(def shot-area-multiplier 0.002)
-
-(def area-transfer-rate 0.05)
-
-(def min-alive-radius 1)
-
-(def speed-loss-multiplier 0.9995)
 
 (defn compute-delta [last-time? time]
   (if last-time?
@@ -32,13 +26,9 @@
 (defn area [{:keys [r]}]
   (* pi r r))
 
-(defn abs [n]
-  #?(:cljs (.abs js/Math n)))
-
-(defn calculate-click-angle [{:keys [click-position entity-position]}]
-  (let [angle (Math/atan2 (- (:y click-position) (:y entity-position))
-                          (- (:x click-position) (:x entity-position)))]
-    angle))
+(defn calculate-click-angle [click-pos entity-pos]
+  (Math/atan2 (- (:y click-pos) (:y entity-pos))
+              (- (:x click-pos) (:x entity-pos))))
 
 (defn area-to-radius [area]
   (-> area (Math/abs) (/ pi) (Math/sqrt)))
@@ -46,8 +36,8 @@
 (defn add-area [entity area]
   (let [r (area-to-radius area)
         sign (if (pos? area) 1 -1)
-        r-add (* sign r)]
-    (update entity :r + r-add)))
+        signed-r (* sign r)]
+    (update entity :r + signed-r)))
 
 (defn create-blob [{:keys [shoot-x shoot-y entity gen-entity-id-fn]}]
   {:x  (-> entity :x (+ (-> entity :r (* shoot-x))))
@@ -57,36 +47,33 @@
    :r  0
    :id (gen-entity-id-fn)})
 
-(defn slice-shot-blob [{:keys [shoot-x shoot-y entity gen-entity-id-fn] :as args}]
+(defn slice-shot-blob [{:keys [entity] :as ctx}]
   (let [area-diff (-> entity area (* shot-area-multiplier))
-        blob (-> (create-blob args) (add-area area-diff))
+        blob (-> (create-blob ctx) (add-area area-diff))
         next-entity (add-area entity (- area-diff))]
     {:entity next-entity :blob blob}))
 
-(defn shoot [{:keys [shoot-position entity gen-entity-id-fn]}]
-  (let [angle (calculate-click-angle {:click-position shoot-position :entity-position entity})
+(defn shoot [{:keys [shoot-pos entity gen-entity-id-fn]}]
+  (let [angle (calculate-click-angle shoot-pos entity)
         shoot-x (Math/cos angle)
         shoot-y (Math/sin angle)
-        {:keys [blob entity]} (slice-shot-blob {:shoot-x shoot-x :shoot-y shoot-y :entity entity :gen-entity-id-fn gen-entity-id-fn})
+        {:keys [blob entity]} (slice-shot-blob {:shoot-x          shoot-x
+                                                :shoot-y          shoot-y
+                                                :entity           entity
+                                                :gen-entity-id-fn gen-entity-id-fn})
         next-entity (-> entity
                         (update :vx - (* shoot-x shot-player-speed-multiplier))
                         (update :vy - (* shoot-y shot-player-speed-multiplier)))]
     {:update-entity next-entity
      :add-shot-blob blob}))
 
-(comment
-  (sc.api/defsc 21)
-  (shoot {:angle            -0.0046050780950956,
-          :entity           {:id 1, :x 155.69990326972183, :y 200, :vx 0, :vy 0, :r 155.69990326972183},
-          :gen-entity-id-fn (constantly 3)}))
-
-(defn in-bounds [{:keys [entity width height] :as ctx}]
+(defn is-in-bounds [{:keys [entity width height]}]
   (and (< (:r entity) (:x entity))
        (< (:x entity) (- width (:r entity)))
        (< (:r entity) (:y entity))
        (< (:y entity) (- height (:r entity)))))
 
-(defn reposition-in-bounds [{:keys [entity width height] :as args}]
+(defn reposition-in-bounds [{:keys [entity width height]}]
   (let [{:keys [x y r]} entity
         max-width (- width r)
         max-height (- height r)]
@@ -137,7 +124,8 @@
         result (if (-> (:r small) (< min-alive-radius))
                  {:small (-> small (assoc :r 0))
                   :big   (-> big (update :r + (:r small)))}
-                 {:small small :big big})]
+                 {:small small
+                  :big   big})]
     result))
 
 (defn intersects [entity1 entity2]
@@ -154,10 +142,13 @@
         (update :vy * speed-loss-multiplier))))
 
 (defn move-entity [{:keys [entity delta game-state] :as ctx}]
-  (let [computed-entity (compute-entity-position-and-speed ctx)]
-    (if (in-bounds (-> ctx (assoc :entity computed-entity :width (:width game-state) :height (:height game-state))))
+  (let [computed-entity (compute-entity-position-and-speed ctx)
+        args-for-bounds (-> ctx (assoc :entity computed-entity
+                                       :width (:width game-state)
+                                       :height (:height game-state)))]
+    (if (is-in-bounds args-for-bounds)
       computed-entity
-      (reposition-in-bounds (-> ctx (assoc :entity computed-entity :width (:width game-state) :height (:height game-state)))))))
+      (reposition-in-bounds args-for-bounds))))
 
 (defn move-entities [{:keys [delta game-state] :as ctx}]
   (reduce-kv

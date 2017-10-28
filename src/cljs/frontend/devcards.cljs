@@ -3,8 +3,7 @@
     [devcards.core :as dc]
     [reagent.core :as reagent]
     [frontend.gui :as gui])
-  (:require-macros
-    [devcards.core :refer [defcard deftest defcard-rg defcard-doc]]))
+  (:require-macros [devcards.core :refer [defcard-rg]]))
 
 
 (defn div-with-canvas [draw-canvas-fn]
@@ -84,6 +83,4 @@
 
 (defn ^:export main []
   (enable-console-print!)
-  (println "Starting devcard ui")
-
   (dc/start-devcard-ui!*))

@@ -6,44 +6,10 @@
             [compojure.core :refer [GET POST defroutes]]
             [compojure.route :refer [resources files]]
             [compojure.handler :refer [api]]
-            [ring.util.response :refer [redirect]]
             [ring.util.http-response :refer :all]
             [ring.middleware.defaults]
             [org.httpkit.server :refer [run-server]]
-            [taoensso.sente :as sente]
-            [taoensso.sente.server-adapters.http-kit :refer (get-sch-adapter)]
             [backend.pages :refer [index-page devcards-page]]))
-
-(def game-state (atom {1 {
-                          :type :blob
-                          :id   1
-                          :x    100
-                          :y    400
-                          :r    10
-                          :vx   0.1
-                          :vy   -0.1
-                          }
-                       2 {
-                          :type :player
-                          :id   1
-                          :name "Alex"
-                          :x    200
-                          :y    100
-                          :r    5
-                          :vx   -0.1
-                          :vy   0.2
-                          }}))
-
-(let [{:keys [ch-recv send-fn connected-uids
-              ajax-post-fn ajax-get-or-ws-handshake-fn]}
-      (sente/make-channel-socket! (get-sch-adapter) {:user-id-fn #(:client-id %)})]
-
-  (def ring-ajax-post ajax-post-fn)
-  (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
-  (def ch-chsk ch-recv)                                     ; ChannelSocket's receive channel
-  (def chsk-send! send-fn)                                  ; ChannelSocket's send API fn
-  (def connected-uids connected-uids)                       ; Watchable, read-only atom
-  )
 
 (defroutes ring-routes
            ;; Note: when running uberjar from project dir, it is
@@ -60,11 +26,7 @@
              ; Use (resource-response "index.html") to serve index.html from classpath
              (-> (ok index-page) (content-type "text/html")))
            (GET "/devcards" []
-             (-> (ok devcards-page) (content-type "text/html")))
-
-           (GET "/chsk" req (ring-ajax-get-or-ws-handshake req))
-           (POST "/chsk" req (ring-ajax-post req))
-           )
+             (-> (ok devcards-page) (content-type "text/html"))))
 
 (def main-ring-handler
   (ring.middleware.defaults/wrap-defaults
@@ -82,58 +44,6 @@
       (http-kit))
     (assoc this :http-kit nil)))
 
-(add-watch connected-uids :connected-uids
-           (fn [_ _ old new]
-             (when-let [new-uid (-> (set/difference (:any new) (:any old)) (seq))]
-               (println "New connected uid:" new-uid))))
-
-(defmulti -event-msg-handler
-          "Multimethod to handle Sente `event-msg`s"
-          :id                                               ; Dispatch on event-id
-          )
-
-(defn event-msg-handler
-  "Wraps `-event-msg-handler` with logging, error catching, etc."
-  [{:as ev-msg :keys [id ?data event]}]
-  (-event-msg-handler ev-msg)                               ; Handle event-msgs on a single thread
-  )
-
-(defmethod -event-msg-handler
-  :default
-  [{:as ev-msg :keys [event id ?data ring-req ?reply-fn send-fn]}]
-  (let [session (:session ring-req)
-        uid (:uid session)]
-    (println "Unhandled event:" event)
-    (when ?reply-fn
-      (?reply-fn {:umatched-event-as-echoed-from-from-server event}))))
-
-(defmethod -event-msg-handler :osmus/join
-  [sev-msg])
-
-(defmethod -event-msg-handler :chsk/uidport-open
-  [{:keys [uid] :as ev-msg}]
-  (println "uidport-open" uid)
-  (chsk-send! uid [:osmus/state @game-state]))
-
-(defmethod -event-msg-handler :chsk/uidport-close [_] ())
-(defmethod -event-msg-handler :chsk/ws-ping [_] ())
-
-(defonce ws-router_ (atom nil))
-(defn stop-ws-router! [] (when-let [stop-fn @ws-router_] (stop-fn)))
-(defn start-ws-router! []
-  (stop-ws-router!)
-  (reset! ws-router_
-          (sente/start-server-chsk-router!
-            ch-chsk event-msg-handler)))
-
 (defn new-system [opts]
   (component/system-map
     :http-kit (map->HttpKit opts)))
-
-(comment
-  (require '[reloaded.repl :refer [reset]])
-  (reset)
-  (start-ws-router!)
-  (sc.api/defsc -2)
-  (doseq [uid (:any @connected-uids)]
-    (chsk-send! uid [:osmus/test "test message"])))
