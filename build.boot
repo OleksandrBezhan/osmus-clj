@@ -88,7 +88,7 @@
       (less))
     ; This starts a repl server with piggieback middleware
     (cljs-repl :ids #{"js/main" "js/devcards"})
-    (cljs :ids #{"js/main" "js/devcards"} :compiler-options {:devcards true})
+    (cljs :ids #{"js/main" "js/devcards"})
     ;; Remove cljs output from classpath but keep with in fileset with output role
     (sift :to-asset #{#"^js/.*"})
     ;; Write the resources to filesystem for dev server
