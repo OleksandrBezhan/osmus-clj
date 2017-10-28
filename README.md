@@ -8,6 +8,10 @@ Big blobs eat small ones and grow as a result. To move around a blob
 has to shoot out in the opposite direction. When it shoots it spends
 a small portion of energy and gets smaller, but gains movement speed.
 
+![teaser][teaser]
+
 ## License
 
 Osmus-clj is Open Source and available under the Apache 2 License.
+
+[teaser]: teaser.gif
