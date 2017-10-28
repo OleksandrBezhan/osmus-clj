@@ -1,0 +1,10 @@
+{:require          [frontend.devcards]
+ :init-fns         [frontend.devcards/main]
+ :compiler-options {:asset-path   "js/devcards.out"
+                    :devcards     true
+                    :install-deps true
+                    :process-shim true
+                    :npm-deps     {:react              "15.6.1"
+                                   :react-dom          "15.6.1"
+                                   :create-react-class "15.5.3"}
+                    }}

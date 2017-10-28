@@ -1,0 +1,7 @@
+{:require          [frontend.gui]
+ :init-fns         [frontend.gui/main!]
+ :compiler-options {:main            frontend.gui
+                    :asset-path      "js/main.out"
+                    :parallel-build  true
+                    :preloads        [devtools.preload]
+                    :external-config {:devtools/config {:features-to-install [:formatters :hints :async]}}}}

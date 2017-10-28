@@ -12,5 +12,11 @@
 *.iml
 
 target/
+out/
+dev-output/
 
 project.clj
+
+node_modules
+package.json
+package-lock.json
