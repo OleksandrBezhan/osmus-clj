@@ -7,3 +7,7 @@ The game is about blobs of energy moving around and eating each other.
 Big blobs eat small ones and grow as a result. To move around a blob
 has to shoot out in the opposite direction. When it shoots it spends
 a small portion of energy and gets smaller, but gains movement speed.
+
+## License
+
+Osmus-clj is Open Source and available under the Apache 2 License.
